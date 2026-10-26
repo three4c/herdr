@@ -955,8 +955,8 @@
         {
           "key": "ui.prompt_new_tab_name",
           "type": "boolean",
-          "default": "true",
-          "description": "Ask for a tab name before creating a new tab."
+          "default": "false",
+          "description": "Ask for a tab name before creating a new tab. This fork creates automatically named tabs immediately by default; set true to enable the naming dialog."
         },
         {
           "key": "ui.prompt_new_workspace_name",

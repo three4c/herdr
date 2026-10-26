@@ -27,6 +27,7 @@ use crate::render_signal::RenderSignal;
 mod agent_detection;
 mod background_agent;
 mod cursor;
+mod cwd_observer;
 mod input;
 mod kitty_keyboard;
 mod osc;
@@ -2856,6 +2857,7 @@ impl PaneRuntime {
             let terminal = terminal.clone();
             let state_events = events.clone();
             let text_content_seq = content_seq.clone();
+            let reported_cwd_for_task = reported_cwd.clone();
             let detection_content_seq = detection_content_seq.clone();
             let full_lifecycle_authority_active_for_task = full_lifecycle_authority_active.clone();
             let self_reported_agent_active_for_task = self_reported_agent_active.clone();
@@ -2892,6 +2894,7 @@ impl PaneRuntime {
                 let mut last_codex_prompt_ready = false;
                 let mut last_self_reported_shell_check = None;
                 let mut agent_job = AgentJobTracker::default();
+                let mut cwd_observer = cwd_observer::CwdObserver::default();
 
                 tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -2948,6 +2951,32 @@ impl PaneRuntime {
                     release_was_active = suppressed_agent.is_some();
                     let pid = child_pid.load(Ordering::Acquire);
                     let mut agent = agent_presence.current_agent();
+                    if agent.is_none() {
+                        let has_reported_cwd = reported_cwd_for_task
+                            .lock()
+                            .map(|cwd| cwd.is_some())
+                            .unwrap_or(false);
+                        if let Some(cwd) = cwd_observer.observe(
+                            text_content_seq.load(Ordering::Acquire),
+                            has_reported_cwd,
+                            || crate::platform::pane_process_cwd(pid),
+                        ) {
+                            // Do not store process observations as OSC authority.
+                            // The existing event updates shared metadata and wakes
+                            // clients even when PTY output used a retained frame.
+                            // Serialize the nonblocking send with OSC admission:
+                            // a report arriving during the process probe wins.
+                            if let Ok(reported) = reported_cwd_for_task.lock() {
+                                if reported.is_none() {
+                                    if let Err(error) = state_events
+                                        .try_send(AppEvent::TerminalCwdReported { pane_id, cwd })
+                                    {
+                                        warn!(pane = pane_id.raw(), %error, "failed to publish observed cwd");
+                                    }
+                                }
+                            }
+                        }
+                    }
                     let lifecycle_authority_active =
                         full_lifecycle_authority_active_for_task.load(Ordering::Acquire);
                     report_self_reported_agent_shell_return(

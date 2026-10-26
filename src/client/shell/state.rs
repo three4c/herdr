@@ -1421,6 +1421,7 @@ impl ClientShellState {
                             || left.zoomed != right.zoomed
                     })
                 || render::tab_bar_status_width(current) != render::tab_bar_status_width(&snapshot)
+                || super::directory_labels::tab_directory_labels_changed(current, &snapshot)
         });
         if self
             .snapshot

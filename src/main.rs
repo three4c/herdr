@@ -285,8 +285,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # confirm_close = true
 
 # Ask for a tab name before creating a new tab.
-# Set false to create tabs immediately with generated names.
-# prompt_new_tab_name = true
+# Tabs are created immediately with generated names by default.
+# Set true to open the naming dialog before creation.
+# prompt_new_tab_name = false
 
 # Ask for a workspace name before interactive creation.
 # prompt_new_workspace_name = false

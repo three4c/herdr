@@ -435,13 +435,8 @@ pub(super) fn agent_row(
             // These paths already come from the runtime snapshot. Keep rendering
             // lexical: no process inspection, canonicalization, or git lookup.
             workspace: pane
-                .and_then(|pane| {
-                    pane.foreground_cwd
-                        .as_deref()
-                        .filter(|cwd| !cwd.is_empty())
-                        .or_else(|| pane.cwd.as_deref().filter(|cwd| !cwd.is_empty()))
-                })
-                .map(directory_label)
+                .and_then(super::directory_labels::pane_directory)
+                .map(super::directory_labels::directory_name)
                 .unwrap_or(&workspace.label),
             tab: tab_label,
             pane: agent
@@ -462,15 +457,6 @@ pub(super) fn agent_row(
         focused: agent.focused,
         rows,
     })
-}
-
-fn directory_label(path: &str) -> &str {
-    // Endpoint paths may be Windows paths even when the TUI runs on Unix.
-    let trimmed = path.trim_end_matches(['/', '\\']);
-    if trimmed.is_empty() {
-        return path;
-    }
-    trimmed.rsplit(['/', '\\']).next().unwrap_or(trimmed)
 }
 
 pub(super) fn render_agent_row(

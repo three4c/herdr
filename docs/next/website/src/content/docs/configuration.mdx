@@ -315,6 +315,12 @@ The sidebar is the main Herdr dashboard. Search `ui.` in the [Config reference](
 
 Set `tab_bar_position = "bottom"` under `[ui]` to place the desktop tab row below the terminal panes. Prefix, Navigate, Copy, and Resize mode bars temporarily replace the bottom tab row while active. The default is `"top"`.
 
+In this fork, automatically named tabs display `#1 herdr`, using their current position in the workspace and the current directories of all panes in layout order. Display numbers stay consecutive after tabs are closed or reordered; internal IDs remain stable. Different directories are joined with ` / `, for example `#1 herdr / hoge`; repeated copies of the same directory appear once. Labels follow `cd`, pane splits, and pane removal without changing when focus moves. A tab with no directory information displays `#1`. Manually named tabs keep their names, and saved names and API labels are unchanged.
+
+Shells without directory notifications also update after output, usually within about half a second. Quiet panes do not require repeated directory checks.
+
+New tabs are created immediately without a naming dialog by default (`ui.prompt_new_tab_name = false`). You can rename a tab afterward. Set this option to `true` to ask for a name before creation.
+
 Configure an ordered tmux-style status area at the right edge of the tab row:
 
 ```toml

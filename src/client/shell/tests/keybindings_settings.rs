@@ -329,7 +329,7 @@ fn inactive_auto_named_tab_label_does_not_stack_terminal_faint() {
         .expect("inactive tab hit")
         .0;
     let buffer = frame.to_ratatui_buffer().expect("tab bar buffer");
-    let (x, y) = cell_symbol_position(&frame, rect, "beta");
+    let (x, y) = cell_symbol_position(&frame, rect, "#2");
     let cell = buffer.cell((x, y)).expect("inactive tab cell");
     assert!(
         !cell.modifier.contains(Modifier::DIM),
