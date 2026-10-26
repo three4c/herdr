@@ -86,6 +86,7 @@ fn local_navigation_highlight_stays_visible_with_terminal_theme() {
                 selection_bg
             };
             let mut state = ClientShellState::new(config);
+            state.config.spaces.visible = true;
             state.set_snapshot(Box::new(workspaces(3)));
             state.set_pane_surface(surface());
             state.sidebar_collapsed = compact;
@@ -587,6 +588,7 @@ fn aggregate_navigation_reveals_overflow_and_preserves_order() {
 
 fn local_navigation_state(compact: bool) -> ClientShellState {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.config.palette = Palette::terminal();
     state.sidebar_collapsed = compact;
     state.set_snapshot(Box::new(workspaces(3)));

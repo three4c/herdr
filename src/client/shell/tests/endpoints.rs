@@ -60,6 +60,8 @@ fn current_workspace_view() -> crate::api::schema::AgentViewSetParams {
 
 fn state_with_remote() -> (ClientShellState, ClientEndpointId) {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    // These fixtures exercise the optional Spaces/machines layout.
+    state.config.spaces.visible = true;
     let profile = remote_profile();
     let endpoint_id = ClientEndpointId::Ssh(profile.id.clone());
     state.set_endpoint_catalog(&[profile]);
@@ -737,6 +739,7 @@ fn live_catalog_active_removal_does_not_retain_remote_projection_or_input() {
 fn machine_navigation_does_not_require_a_local_snapshot_or_surface() {
     for (cols, rows) in [(100, 28), (36, 18)] {
         let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+        state.config.spaces.visible = true;
         let profile = remote_profile();
         let remote = ClientEndpointId::Ssh(profile.id.clone());
         state.set_endpoint_catalog(&[profile]);

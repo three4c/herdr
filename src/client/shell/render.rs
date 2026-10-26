@@ -268,7 +268,16 @@ pub(super) fn render_shell(
         );
     }
     if layout.sidebar.width > 0 {
-        if state.endpoints.len() > 1 {
+        if !config.spaces.visible {
+            super::agent_sidebar::render_tab_sidebar(
+                buffer,
+                layout.sidebar,
+                Some(snapshot),
+                config,
+                &mut state,
+                &mut hits,
+            );
+        } else if state.endpoints.len() > 1 {
             if state.sidebar_collapsed {
                 super::endpoint_sidebar::render_collapsed(
                     buffer,

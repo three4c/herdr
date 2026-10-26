@@ -357,6 +357,10 @@ status_indicators = "symbols"
 
 ### サイドバーの行レイアウト
 
+この fork では Spaces を既定で非表示にし、Agents がサイドバー全体を使用します。内部のワークスペース構造は維持されるため、1 つのワークスペース内でタブごとに作業ディレクトリを分けられます。Agents の主な表示名は各ペインの現在ディレクトリの末尾名です。前景プロセス、シェルの順にディレクトリを参照し、取得できない場合はワークスペース名を表示します。バックグラウンドタブのディレクトリ更新にも追従し、エージェントの種類・状態、クリックでの移動、スクロールも利用できます。
+
+従来の Spaces/Agents 分割表示に戻すには、`[ui.sidebar.spaces]` に `visible = true` を指定します。この設定はクライアントの表示だけに影響します。
+
 展開されたデスクトップサイドバーでは、`rows` の各内側の配列が 1 行として描画されます。完全なデフォルトレイアウトは次のとおりです:
 
 ```toml
@@ -364,10 +368,11 @@ status_indicators = "symbols"
 row_gap = 0
 rows = [
   ["state_icon", "machine", "workspace", "tab"],
-  ["agent"],
+  ["agent", "state_text"],
 ]
 
 [ui.sidebar.spaces]
+visible = false
 row_gap = 0
 rows = [
   ["state_icon", "workspace"],
@@ -380,7 +385,7 @@ Agent の行では、次の組み込みトークンを使えます:
 - `state_icon` — エージェントの意味的な状態を示す色付きアイコン。
 - `state_text` — `idle`、`working`、`blocked`、`done`、`unknown`。報告された表示ラベルがある場合はそれも含みます。
 - `machine` — クライアントに複数のマシンがある場合のマシンラベル。ローカルマシン 1 台だけの場合は省略されます。
-- `workspace` — ワークスペース名。
+- `workspace` — Agents ではペインの現在ディレクトリの末尾名。ディレクトリを取得できない場合はワークスペース名。
 - `tab` — 利用可能な場合はタブ名。
 - `pane` — 利用可能な場合はペイン名。
 - `agent` — 検出または報告されたエージェントの表示名。

@@ -151,6 +151,7 @@ fn non_overlay_ctrl_v_is_forwarded_to_the_focused_pane() {
 fn desktop_composition_keeps_shell_outside_origin_relative_surface() {
     let config = ClientShellConfig::from_config(&Config::default());
     let mut state = ClientShellState::new(config);
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
 
@@ -955,6 +956,7 @@ fn sidebar_scrollbars_use_proportional_shared_geometry_and_drag() {
         });
     }
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
     state.compose(106, 20).expect("overflowing sidebars");

@@ -78,7 +78,16 @@ impl ClientShellState {
             dragged_workspace_id: None,
             workspace_drop_indicator_row: None,
         };
-        if let Some(snapshot) = local_snapshot {
+        if !self.config.spaces.visible {
+            super::agent_sidebar::render_tab_sidebar(
+                &mut buffer,
+                sidebar,
+                self.snapshot.as_deref(),
+                &self.config,
+                &mut render_state,
+                &mut self.hits,
+            );
+        } else if let Some(snapshot) = local_snapshot {
             render::render_sidebar(
                 &mut buffer,
                 sidebar,

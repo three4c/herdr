@@ -361,6 +361,10 @@ The symbols are static, so this option does not enable spinner animation.
 
 ### Sidebar row layouts
 
+This fork defaults to a tab-centered sidebar: Spaces is hidden and Agents uses the full sidebar height. Tabs and panes still belong to the existing workspace. Agent primary labels show the last component of each pane's current directory, preferring the foreground process directory and falling back to the shell directory, then the workspace label when neither is available. The label follows directory updates, including in background tabs. Agent kind, state, click-to-focus, and scrolling remain available.
+
+Set `visible = true` under `[ui.sidebar.spaces]` to restore the split Spaces/Agents layout. This is a client presentation setting and does not change saved workspaces or the server protocol.
+
 The expanded desktop sidebar renders each inner array in `rows` as one line. These are the complete default layouts:
 
 ```toml
@@ -368,10 +372,11 @@ The expanded desktop sidebar renders each inner array in `rows` as one line. The
 row_gap = 0
 rows = [
   ["state_icon", "machine", "workspace", "tab"],
-  ["agent"],
+  ["agent", "state_text"],
 ]
 
 [ui.sidebar.spaces]
+visible = false
 row_gap = 0
 rows = [
   ["state_icon", "workspace"],
@@ -384,7 +389,7 @@ Agent rows accept these built-in tokens:
 - `state_icon` — colored icon for the agent's semantic state.
 - `state_text` — `idle`, `working`, `blocked`, `done`, or `unknown`, including a reported display label when present.
 - `machine` — machine label when the client has multiple machines; omitted for a single local machine.
-- `workspace` — workspace name.
+- `workspace` — pane directory basename in Agent rows (workspace name if the directory is unavailable).
 - `tab` — tab name when available.
 - `pane` — pane name when available.
 - `agent` — detected or reported agent display name.

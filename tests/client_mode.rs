@@ -567,7 +567,8 @@ fn server_crash_after_attach_causes_lost_connection_error() {
                 Ok(n) if n > 0 => {
                     let out = String::from_utf8_lossy(&buf[..n]);
                     output.push_str(&out);
-                    if out.contains("\u{2500}")
+                    if out.contains("agents")
+                        || out.contains("\u{2500}")
                         || out.contains("workspace")
                         || out.contains("pane")
                         || out.contains("terminal")
@@ -881,7 +882,8 @@ fn attach_thin_client_with_config(
     let mut attached = false;
     while Instant::now() < deadline {
         let out = read_output(&output);
-        if out.contains('\u{2500}')
+        if out.contains("agents")
+            || out.contains('\u{2500}')
             || out.contains("workspace")
             || out.contains("pane")
             || out.contains("terminal")
@@ -916,7 +918,7 @@ fn federated_launch_opens_local_directly_while_saved_ssh_is_unavailable() {
         fs::create_dir_all(config_home.join(app_dir_name())).unwrap();
         fs::write(
             config_home.join(app_dir_name()).join("config.toml"),
-            "onboarding = false\n",
+            "onboarding = false\n[ui.sidebar.spaces]\nvisible = true\n",
         )
         .unwrap();
         let catalog_dir = runtime_dir
@@ -1016,7 +1018,7 @@ fn federated_client_starts_without_local_and_survives_its_restart() {
     fs::create_dir_all(config_home.join(app_dir_name())).unwrap();
     fs::write(
         config_home.join(app_dir_name()).join("config.toml"),
-        "onboarding = false\n",
+        "onboarding = false\n[ui.sidebar.spaces]\nvisible = true\n",
     )
     .unwrap();
     let catalog_dir = runtime_dir
@@ -1682,7 +1684,8 @@ fn read_until_client_attaches(client: &SpawnedHerdr) -> String {
             }
             Err(err) => panic!("read thin client PTY: {err}"),
         }
-        if output.contains('\u{2500}')
+        if output.contains("agents")
+            || output.contains('\u{2500}')
             || output.contains("workspace")
             || output.contains("pane")
             || output.contains("terminal")

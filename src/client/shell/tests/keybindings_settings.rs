@@ -68,6 +68,7 @@ fn shell_new_controls_use_the_same_client_action_routes_as_keybinds() {
     config.ui.prompt_new_workspace_name = false;
     config.ui.prompt_new_tab_name = true;
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     state.compose(106, 20).expect("composed frame");

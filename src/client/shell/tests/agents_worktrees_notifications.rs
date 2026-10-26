@@ -4,6 +4,7 @@ use super::*;
 fn mouse_hits_use_stable_workspace_tab_and_pane_ids() {
     let config = ClientShellConfig::from_config(&Config::default());
     let mut state = ClientShellState::new(config);
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     state.compose(106, 20).expect("composed frame");
@@ -52,6 +53,7 @@ fn mouse_hits_use_stable_workspace_tab_and_pane_ids() {
 #[test]
 fn collapsed_workspace_jitter_remains_a_click() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.sidebar_collapsed = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
@@ -93,6 +95,7 @@ fn collapsed_workspace_jitter_remains_a_click() {
 fn grouped_worktrees_render_parent_branch_and_indented_child() {
     let config = ClientShellConfig::from_config(&Config::default());
     let mut state = ClientShellState::new(config);
+    state.config.spaces.visible = true;
     let mut snapshot = snapshot();
     snapshot.workspaces[0].worktree = Some(ClientShellWorktree {
         key: "repo".into(),
@@ -195,6 +198,7 @@ fn duplicate_repo_parents_remain_visible_and_focusable_when_collapsed() {
         }
 
         let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+        state.config.spaces.visible = true;
         state.set_snapshot(Box::new(projected));
         state.set_pane_surface(surface());
         for collapsed in [false, true] {
@@ -301,6 +305,7 @@ fn workspace_click_waits_for_release_and_drag_reorders_by_stable_id() {
         projected.workspaces.push(workspace);
     }
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
     state.compose(106, 24).expect("three workspaces");
@@ -393,6 +398,7 @@ fn duplicate_repo_parent_drag_does_not_target_its_own_move_block() {
     duplicate.focused = false;
     projected.workspaces.extend([other, duplicate]);
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
     state
@@ -456,6 +462,7 @@ fn workspace_drag_moves_parent_worktree_as_one_block_and_rejects_child() {
     projected.workspaces.extend([child, other]);
 
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
     state.compose(106, 24).expect("worktree workspaces");
@@ -516,6 +523,7 @@ fn workspace_drag_moves_parent_worktree_as_one_block_and_rejects_child() {
     duplicate.focused = false;
     projected.workspaces.push(duplicate);
     state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
     state
@@ -708,6 +716,7 @@ fn agent_sidebar_honors_priority_symbols_tokens_and_stable_hits() {
         ],
     );
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
 
@@ -839,6 +848,7 @@ fn workspace_state_text_does_not_stack_terminal_faint() {
         vec![SpaceSidebarToken::StateText],
     ];
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     let frame = state.compose(106, 30).expect("workspace sidebar frame");
@@ -1091,6 +1101,7 @@ fn desktop_workspace_navigation_reveals_overflowing_selection() {
         projected.workspaces.push(workspace);
     }
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
     state.mode = ClientShellMode::Navigate;
@@ -1162,6 +1173,7 @@ fn navigate_mode_selects_workspace_locally_then_focuses_by_stable_id() {
     second.focused = false;
     snapshot.workspaces.push(second);
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot));
     state.set_pane_surface(surface());
 
