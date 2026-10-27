@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 //! Session restore must not wait for optional repository metadata.
 #![cfg(unix)]
 

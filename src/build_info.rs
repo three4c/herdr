@@ -1,8 +1,12 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 //! Build identity helpers.
 
 pub const BASE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn channel() -> &'static str {
+    if is_fork() {
+        return "aira";
+    }
     non_empty(option_env!("HERDR_BUILD_CHANNEL")).unwrap_or("stable")
 }
 
@@ -11,6 +15,9 @@ pub fn build_id() -> Option<&'static str> {
 }
 
 pub fn version() -> String {
+    if is_fork() {
+        return format!("{BASE_VERSION}-aira.{}", fork_release());
+    }
     match channel() {
         "stable" => BASE_VERSION.to_string(),
         channel => match build_id() {
@@ -18,6 +25,17 @@ pub fn version() -> String {
             None => format!("{BASE_VERSION}-{channel}"),
         },
     }
+}
+
+/// This source tree always builds the personal fork, including local builds.
+pub fn is_fork() -> bool {
+    true
+}
+
+pub fn fork_release() -> u64 {
+    env!("HERDR_FORK_RELEASE")
+        .parse()
+        .expect("build.rs validated HERDR_FORK_RELEASE")
 }
 
 pub fn is_preview() -> bool {

@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use std::io;
 
 pub(crate) const HERDR_ENV_VAR: &str = "HERDR_ENV";
@@ -23,6 +24,7 @@ mod config;
 mod copy_mode;
 mod detect;
 mod events;
+mod fork_distribution;
 use ghostty_vt as ghostty;
 mod handoff_runtime;
 mod input;
@@ -615,6 +617,7 @@ fn main() -> io::Result<()> {
         println!("       herdr session attach <name>");
         println!("       herdr completion zsh");
         println!("       herdr update [--handoff]");
+        println!("       herdr --licenses");
         println!("       herdr channel set <stable|preview>");
         println!("       herdr machine <subcommand> ...");
         println!("       herdr server stop");
@@ -726,6 +729,17 @@ fn main() -> io::Result<()> {
     if args.iter().any(|a| a == "--version" || a == "-V") {
         platform::begin_cli_output();
         println!("herdr {}", crate::build_info::version());
+        return Ok(());
+    }
+
+    if args.iter().any(|arg| arg == "--licenses") {
+        platform::begin_cli_output();
+        print!("{}", include_str!("../LICENSE"));
+        print!("\n{}", include_str!("../distribution/fork/FORK-NOTICE.txt"));
+        print!(
+            "\n{}",
+            include_str!("../distribution/fork/THIRD-PARTY-NOTICES.txt")
+        );
         return Ok(());
     }
 

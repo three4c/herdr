@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use ratatui::{
     buffer::Buffer,
     layout::Rect,

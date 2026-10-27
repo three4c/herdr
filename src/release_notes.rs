@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -89,11 +90,19 @@ fn release_notes_from_stored(
     }
 
     let preview = match (
-        crate::update::Version::parse(&stored.version),
-        crate::update::Version::parse(current_version),
+        crate::fork_distribution::parse_version(&stored.version),
+        crate::fork_distribution::parse_version(current_version),
     ) {
-        (Some(stored_version), Some(current_version)) => stored_version > current_version,
-        _ => false,
+        (Some((_, stored_release)), Some((_, current_release))) => stored_release > current_release,
+        _ => match (
+            crate::update::Version::parse(&stored.version),
+            crate::update::Version::parse(current_version).or_else(|| {
+                crate::fork_distribution::parse_version(current_version).map(|(base, _)| base)
+            }),
+        ) {
+            (Some(stored_version), Some(current_version)) => stored_version > current_version,
+            _ => false,
+        },
     };
 
     Some(ReleaseNotes {
@@ -225,6 +234,27 @@ mod tests {
         assert!(!notes.preview);
 
         clear_pending_at(&path).unwrap();
+    }
+
+    #[test]
+    fn fork_notes_follow_release_sequence_across_upstream_versions() {
+        for (stored_version, current_version, expected_preview) in [
+            ("0.9.5-aira.12", "0.9.5-aira.11", true),
+            ("0.9.5-aira.12", "0.9.5-aira.12", false),
+            ("0.9.5-aira.12", "0.9.6-aira.13", false),
+            ("0.9.4-aira.13", "0.9.6-aira.12", true),
+        ] {
+            let notes = release_notes_from_stored(
+                StoredReleaseNotes {
+                    version: stored_version.into(),
+                    body: "Fork notes".into(),
+                    show_on_startup: true,
+                },
+                current_version,
+            )
+            .unwrap();
+            assert_eq!(notes.preview, expected_preview);
+        }
     }
 
     #[test]

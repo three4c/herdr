@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use std::collections::HashSet;
 use std::fs;
 use std::io::{Read, Write};
@@ -25,6 +26,14 @@ pub const SERVER_MESSAGE_PANE_SURFACE_PATCH: u32 = 19;
 const CLIENT_MESSAGE_CLIENT_SHELL_PANE_INPUT: u32 = 13;
 const CLIENT_MESSAGE_CLIENT_SHELL_FOCUS: u32 = 18;
 const CLIENT_MESSAGE_ENDPOINT_CONTROL: u32 = 20;
+
+pub fn current_build_version() -> String {
+    format!(
+        "{}-aira.{}",
+        env!("CARGO_PKG_VERSION"),
+        env!("HERDR_FORK_RELEASE")
+    )
+}
 
 pub fn isolate_herdr_test_process(command: &mut CommandBuilder) {
     command.env_remove("HERDR_STARTUP_CWD");

@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
@@ -157,6 +158,14 @@ fn api_group(name: &str) -> Option<clap::Command> {
 }
 
 fn run_channel_command(args: &[String]) -> std::io::Result<i32> {
+    if crate::build_info::is_fork() {
+        if args.first().map(String::as_str) == Some("show") && args.len() == 1 {
+            println!("aira (three4c/herdr)");
+            return Ok(0);
+        }
+        eprintln!("This fork uses only three4c/herdr releases. Channel switching is disabled; run `herdr update`.");
+        return Ok(1);
+    }
     match args.first().map(|arg| arg.as_str()) {
         Some("set") => channel_set(&args[1..]),
         Some("show") if args.len() == 1 => {

@@ -1,6 +1,7 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 //! Self-update mechanism.
 //!
-//! Checks the hosted herdr.dev update manifest for newer versions.
+//! Checks the selected distribution's update manifest for newer versions.
 //! Manual `herdr update` downloads and installs the binary.
 //! Background checks only surface availability and release notes.
 //! Uses `curl` as a subprocess for HTTP — no additional Rust HTTP dependencies.
@@ -106,6 +107,10 @@ enum UpdateChannel {
 
 impl UpdateChannel {
     fn configured() -> Self {
+        if crate::build_info::is_fork() {
+            // Existing stable/preview settings must never select an upstream binary.
+            return Self::Stable;
+        }
         match crate::config::Config::load().config.update.channel {
             crate::config::UpdateChannelConfig::Stable => Self::Stable,
             crate::config::UpdateChannelConfig::Preview => Self::Preview,
@@ -326,10 +331,16 @@ impl ReleaseInfo {
 }
 
 fn fetch_update_manifest() -> Result<UpdateManifest, String> {
+    if crate::build_info::is_fork() {
+        return Err("upstream update manifests are disabled for three4c/herdr".into());
+    }
     fetch_json_manifest(STABLE_UPDATE_MANIFEST_URL)
 }
 
 fn fetch_preview_manifest() -> Result<PreviewManifest, String> {
+    if crate::build_info::is_fork() {
+        return Err("preview updates are disabled for three4c/herdr".into());
+    }
     fetch_json_manifest(PREVIEW_UPDATE_MANIFEST_URL)
 }
 
@@ -573,6 +584,10 @@ fn release_info_from_manifests(
 
 /// Check the hosted update manifests for the latest release. Returns release info if newer.
 fn check_latest() -> Result<Option<ReleaseInfo>, String> {
+    if crate::build_info::is_fork() {
+        let manifest = fetch_json_manifest(crate::fork_distribution::MANIFEST_URL)?;
+        return release_info_from_fork_manifest(&manifest, crate::build_info::fork_release());
+    }
     let manifest = fetch_update_manifest()?;
     let preview = if UpdateChannel::configured() == UpdateChannel::Preview {
         Some(fetch_preview_manifest()?)
@@ -600,6 +615,36 @@ fn check_latest() -> Result<Option<ReleaseInfo>, String> {
     Ok(release)
 }
 
+fn release_info_from_fork_manifest(
+    manifest: &crate::fork_distribution::Manifest,
+    installed_release: u64,
+) -> Result<Option<ReleaseInfo>, String> {
+    manifest.validate()?;
+    if manifest.release <= installed_release {
+        return Ok(None);
+    }
+    let (os, arch) = platform_target();
+    let key = format!("{os}-{arch}");
+    let (url, checksum) = manifest.asset(&key)?;
+    let version = Version::parse(&manifest.base_version).ok_or("invalid fork base_version")?;
+    Ok(Some(ReleaseInfo {
+        version,
+        identity: manifest.version.clone(),
+        channel: UpdateChannel::Stable,
+        build_id: Some(manifest.release.to_string()),
+        commit: Some(manifest.commit.clone()),
+        #[cfg(not(windows))]
+        target_protocol: Some(manifest.protocol),
+        #[cfg(not(windows))]
+        target_endpoint_generation: Some(manifest.endpoint_generation),
+        download_url: url.to_owned(),
+        sha256: Some(checksum.to_owned()),
+        #[cfg(windows)]
+        package_format: "exe".into(),
+        notes_body: manifest.notes.clone(),
+    }))
+}
+
 fn parse_homebrew_formula_stable_version(input: &[u8]) -> Result<Version, String> {
     let formula: HomebrewFormula = serde_json::from_slice(input)
         .map_err(|e| format!("failed to parse Homebrew formula JSON: {e}"))?;
@@ -624,6 +669,9 @@ fn homebrew_update_from_formula_json(
 }
 
 fn check_homebrew_latest() -> Result<Option<Version>, String> {
+    if crate::build_info::is_fork() {
+        return Err("Homebrew updates are disabled for three4c/herdr".into());
+    }
     let current = Version::current();
 
     let output = crate::noninteractive_process::curl_command()
@@ -1929,6 +1977,9 @@ fn print_running_session_update_outcomes(
 // ---------------------------------------------------------------------------
 
 pub(crate) fn update_install_command() -> &'static str {
+    if crate::build_info::is_fork() {
+        return HERDR_UPDATE_COMMAND;
+    }
     if is_homebrew_managed_install() {
         HOMEBREW_UPDATE_COMMAND
     } else if is_mise_managed_install() {
@@ -1960,6 +2011,9 @@ pub(crate) fn update_install_instruction(install_command: &str) -> String {
 }
 
 fn is_homebrew_managed_install() -> bool {
+    if crate::build_info::is_fork() {
+        return false;
+    }
     let Ok(current_exe) = env::current_exe() else {
         return false;
     };
@@ -1968,6 +2022,9 @@ fn is_homebrew_managed_install() -> bool {
 }
 
 fn is_nix_managed_install() -> bool {
+    if crate::build_info::is_fork() {
+        return false;
+    }
     let Ok(current_exe) = env::current_exe() else {
         return false;
     };
@@ -1976,6 +2033,9 @@ fn is_nix_managed_install() -> bool {
 }
 
 fn is_mise_managed_install() -> bool {
+    if crate::build_info::is_fork() {
+        return false;
+    }
     let Ok(current_exe) = env::current_exe() else {
         return false;
     };
@@ -2181,6 +2241,18 @@ fn preserve_preview_channel_for_install(
 
 /// Manual self-update command (`herdr update`).
 pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
+    if crate::build_info::is_fork() {
+        let (os, arch) = platform_target();
+        if !crate::fork_distribution::TARGETS.contains(&format!("{os}-{arch}").as_str()) {
+            return Err(
+                "three4c/herdr releases support only macOS and Linux on x86_64/aarch64".into(),
+            );
+        }
+        let executable = env::current_exe().map_err(|error| error.to_string())?;
+        if is_package_manager_managed_exe_path(&executable) {
+            return Err("Install three4c/herdr in a standalone directory with the fork installer before using self-update".into());
+        }
+    }
     let channel = UpdateChannel::configured();
 
     if is_homebrew_managed_install() {
@@ -2220,7 +2292,11 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
         return Err("run `herdr update` outside herdr after detaching from the session".into());
     }
 
-    eprintln!("checking {} channel for updates...", channel.as_str());
+    if crate::build_info::is_fork() {
+        eprintln!("checking aira releases for updates...");
+    } else {
+        eprintln!("checking {} channel for updates...", channel.as_str());
+    }
 
     let current = Version::current();
 
@@ -2233,7 +2309,7 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     };
 
     if let Some(commit) = &release.commit {
-        tracing::info!(commit = %commit, build_id = ?release.build_id, "selected preview update build");
+        tracing::info!(commit = %commit, build_id = ?release.build_id, "selected update build");
     }
     if let Err(e) = crate::release_notes::save_pending(release.label(), &release.notes_body) {
         tracing::warn!("failed to save pending release notes: {e}");
@@ -2582,6 +2658,43 @@ fn platform_target() -> (&'static str, &'static str) {
 #[cfg(test)]
 mod channel_tests {
     use super::*;
+
+    #[test]
+    fn fork_releases_compare_sequence_even_when_base_version_changes() {
+        let mut manifest = crate::fork_distribution::test_manifest(12);
+        let release = release_info_from_fork_manifest(&manifest, 11)
+            .unwrap()
+            .unwrap();
+        assert_eq!(release.label(), "0.9.5-aira.12");
+        assert!(release
+            .download_url
+            .starts_with("https://github.com/three4c/herdr/"));
+        assert!(release.sha256.is_some());
+        assert!(release_info_from_fork_manifest(&manifest, 12)
+            .unwrap()
+            .is_none());
+        assert!(release_info_from_fork_manifest(&manifest, 13)
+            .unwrap()
+            .is_none());
+        manifest.base_version = "0.9.4".into();
+        manifest.version = "0.9.4-aira.12".into();
+        assert!(release_info_from_fork_manifest(&manifest, 11)
+            .unwrap()
+            .is_some());
+        assert!(release_info_from_fork_manifest(&manifest, 0)
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn fork_disables_upstream_fetches_before_network_access() {
+        assert_eq!(crate::build_info::channel(), "aira");
+        assert!(!crate::build_info::is_preview());
+        assert!(fetch_update_manifest().err().unwrap().contains("disabled"));
+        assert!(fetch_preview_manifest().err().unwrap().contains("disabled"));
+        assert!(check_homebrew_latest().unwrap_err().contains("disabled"));
+        assert_eq!(update_install_command(), "herdr update");
+    }
 
     fn manifests() -> (UpdateManifest, PreviewManifest) {
         let (os, arch) = platform_target();

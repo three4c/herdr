@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use std::path::PathBuf;
 
 /// Process fallback for shells that do not report OSC 7. Run on the existing

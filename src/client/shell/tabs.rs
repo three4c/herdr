@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use super::*;
 
 const TAB_SCROLL_BUTTON_WIDTH: u16 = 3;
