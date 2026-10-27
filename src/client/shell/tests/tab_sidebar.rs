@@ -216,6 +216,202 @@ fn tab_sidebar_keeps_agents_during_resize_and_routes_remote_clicks() {
     let text = rendered_text(&state.compose(106, 30).unwrap());
     assert!(text.contains("agents"));
     assert!(!text.contains(" spaces"));
-    assert!(!text.contains(" machines"));
+    assert!(text.contains(" machines"));
     assert!(state.hits.workspaces.is_empty());
+}
+
+#[test]
+fn narrow_agents_follow_each_pane_directory_and_keep_click_targets() {
+    let mut projected = directory_snapshot(2);
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    for directory in ["/work/foo\\bar", "/work/changed"] {
+        projected.revision += 1;
+        projected.panes[1].foreground_cwd = Some(directory.into());
+        state.set_snapshot(Box::new(projected.clone()));
+        let mut pane_surface = surface();
+        pane_surface.projection_revision = projected.revision;
+        state.set_pane_surface(pane_surface);
+        state.mode = ClientShellMode::Navigate;
+        let frame = state.compose(44, 30).unwrap();
+        let (rect, _) = state.hits.mobile_targets.iter().find(|(_, target)| {
+            matches!(target, ClientMobileTarget::Agent { pane_id, .. } if pane_id == "pane_2")
+        }).unwrap();
+        let rect = *rect;
+        let rows = frame_rows(&frame);
+        assert!(rows[usize::from(rect.y)]
+            .contains(super::super::directory_labels::directory_name(directory)));
+        assert!(rows[usize::from(rect.y) + 1].contains("blocked"));
+        assert!(rows[usize::from(rect.y) + 1].contains("codex"));
+        let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: rect.x + 1,
+            row: rect.y,
+            modifiers: KeyModifiers::empty(),
+        })]);
+        assert!(outcome.actions.iter().any(|action| matches!(action,
+            ClientShellAction::Endpoint { request, .. }
+            if matches!(&request.method, crate::api::schema::Method::PaneFocus(target) if target.pane_id == "pane_2")
+        )));
+    }
+}
+
+#[test]
+fn agentless_machines_remain_clickable_without_spaces_or_a_local_surface() {
+    use crate::client::endpoint::{ClientEndpointStatus, ProfileId, SavedSshEndpoint};
+    for collapsed in [false, true] {
+        for available in [false, true] {
+            let mut state =
+                ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+            let profile = SavedSshEndpoint {
+                id: ProfileId::parse("0123456789abcdef0123456789abcdef").unwrap(),
+                label: "Build".into(),
+                target: "test@example.invalid".into(),
+                session: "test".into(),
+                enabled: true,
+            };
+            let remote_id = ClientEndpointId::Ssh(profile.id.clone());
+            state.set_endpoint_catalog(&[profile]);
+            state.set_endpoint_status(&remote_id, ClientEndpointStatus::Online);
+            let mut remote = snapshot();
+            remote.boot_id = "remote-boot".into();
+            state.set_endpoint_snapshot(&remote_id, Box::new(remote));
+            if available {
+                state.set_snapshot(Box::new(snapshot()));
+                state.set_pane_surface(surface());
+            }
+            state.sidebar_collapsed = collapsed;
+            let frame = state.compose(106, 30).unwrap();
+            assert!(state.hits.workspaces.is_empty());
+            assert!(!rendered_text(&frame).contains(" spaces"));
+            let rect = state
+                .hits
+                .machines
+                .iter()
+                .find(|hit| hit.endpoint_id == remote_id)
+                .unwrap()
+                .rect;
+            let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: rect.x,
+                row: rect.y,
+                modifiers: KeyModifiers::empty(),
+            })]);
+            assert!(
+                matches!(&outcome.actions[..],
+                    [ClientShellAction::ActivateEndpoint { endpoint_id, .. }] if endpoint_id == &remote_id
+                ),
+                "collapsed={collapsed}, available={available}: {:?}",
+                outcome.actions
+            );
+            state.set_endpoint_status(&remote_id, ClientEndpointStatus::Reconnecting);
+            state.compose(106, 30).unwrap();
+            let rect = state
+                .hits
+                .machines
+                .iter()
+                .find(|hit| hit.endpoint_id == remote_id)
+                .unwrap()
+                .rect;
+            state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: rect.x,
+                row: rect.y,
+                modifiers: KeyModifiers::empty(),
+            })]);
+            assert_eq!(state.take_machine_retries(), [remote_id]);
+        }
+    }
+}
+
+#[test]
+fn machine_selector_scroll_reaches_endpoints_beyond_the_available_rows() {
+    use crate::client::endpoint::{ClientEndpointStatus, ProfileId, SavedSshEndpoint};
+    let profiles = (1..=15)
+        .map(|index| SavedSshEndpoint {
+            id: ProfileId::parse(format!("{index:032x}")).unwrap(),
+            label: format!("Build {index}"),
+            target: "test@example.invalid".into(),
+            session: "test".into(),
+            enabled: true,
+        })
+        .collect::<Vec<_>>();
+    let last_id = ClientEndpointId::Ssh(profiles.last().unwrap().id.clone());
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_endpoint_catalog(&profiles);
+    for profile in &profiles {
+        state.set_endpoint_status(
+            &ClientEndpointId::Ssh(profile.id.clone()),
+            ClientEndpointStatus::Online,
+        );
+        state.set_endpoint_snapshot(
+            &ClientEndpointId::Ssh(profile.id.clone()),
+            Box::new(snapshot()),
+        );
+    }
+    state.set_snapshot(Box::new(directory_snapshot(2)));
+    state.set_pane_surface(surface());
+    state.compose(106, 24).unwrap();
+    assert_eq!(state.hits.agent_sort_toggle.y, 0);
+    assert!(!state.hits.workspace_scrollbar.is_empty());
+    let body = state.hits.workspace_body;
+    for _ in 0..20 {
+        state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: body.x,
+            row: body.y,
+            modifiers: KeyModifiers::empty(),
+        })]);
+        state.compose(106, 24).unwrap();
+    }
+    let rect = state
+        .hits
+        .machines
+        .iter()
+        .find(|hit| hit.endpoint_id == last_id)
+        .unwrap()
+        .rect;
+    let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: rect.x,
+        row: rect.y,
+        modifiers: KeyModifiers::empty(),
+    })]);
+    assert!(
+        matches!(&outcome.actions[..], [ClientShellAction::ActivateEndpoint { endpoint_id, .. }] if endpoint_id == &last_id),
+        "{:?}",
+        outcome.actions
+    );
+}
+
+#[test]
+fn narrow_remote_agents_use_the_matching_endpoint_directory_and_workspace_fallback() {
+    use crate::client::endpoint::{ClientEndpointStatus, ProfileId, SavedSshEndpoint};
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    let profile = SavedSshEndpoint {
+        id: ProfileId::parse("0123456789abcdef0123456789abcdef").unwrap(),
+        label: "Build".into(),
+        target: "test@example.invalid".into(),
+        session: "test".into(),
+        enabled: true,
+    };
+    let remote_id = ClientEndpointId::Ssh(profile.id.clone());
+    state.set_endpoint_catalog(&[profile]);
+    state.set_endpoint_status(&remote_id, ClientEndpointStatus::Online);
+    state.set_snapshot(Box::new(directory_snapshot(1)));
+    state.set_pane_surface(surface());
+    let mut remote = directory_snapshot(1);
+    remote.boot_id = "remote-boot".into();
+    remote.panes[0].cwd = Some("C:\\work\\remote-project".into());
+    remote.panes[0].foreground_cwd = None;
+    for expected in ["remote-project", "client-shell"] {
+        state.set_endpoint_snapshot(&remote_id, Box::new(remote.clone()));
+        state.mode = ClientShellMode::Navigate;
+        let frame = state.compose(44, 40).unwrap();
+        let (rect, _) = state.hits.mobile_targets.iter().find(|(_, target)| {
+            matches!(target, ClientMobileTarget::Agent { endpoint_id, .. } if endpoint_id == &remote_id)
+        }).unwrap();
+        let row = &frame_rows(&frame)[usize::from(rect.y)];
+        assert!(row.contains(expected), "{row}");
+        remote.panes[0].cwd = None;
+    }
 }

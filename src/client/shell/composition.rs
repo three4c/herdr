@@ -66,7 +66,7 @@ impl ClientShellState {
             tab_scroll: &mut self.tab_scroll,
             reveal_focused_workspace: &mut self.reveal_focused_workspace,
             reveal_focused_tab: &mut self.reveal_focused_tab,
-            sidebar_collapsed: false,
+            sidebar_collapsed: !self.config.spaces.visible && self.sidebar_collapsed,
             sidebar_section_split: self.sidebar_section_split,
             tab_drag_insert_index: None,
             selected_workspace_id: self

@@ -632,6 +632,26 @@ fn mobile_items(
                 target: None,
             });
         }
+        // Index existing snapshots once instead of scanning every pane per agent.
+        let directory_names = endpoints
+            .iter()
+            .filter_map(|endpoint| {
+                endpoint
+                    .snapshot
+                    .as_deref()
+                    .map(|snapshot| (endpoint, snapshot))
+            })
+            .flat_map(|(endpoint, snapshot)| {
+                snapshot.panes.iter().filter_map(move |pane| {
+                    super::directory_labels::pane_directory(pane).map(|directory| {
+                        (
+                            (&endpoint.endpoint_id, pane.pane_id.as_str()),
+                            super::directory_labels::directory_name(directory),
+                        )
+                    })
+                })
+            })
+            .collect::<HashMap<_, _>>();
         for row in agents {
             let endpoint = row.endpoint;
             let agent = row.agent;
@@ -651,8 +671,10 @@ fn mobile_items(
                 .or(agent.name.as_deref())
                 .or(agent.agent.as_deref())
                 .unwrap_or("agent");
-            let primary = workspace
-                .map(|workspace| workspace.label.as_str())
+            let primary = directory_names
+                .get(&(endpoint.endpoint_id, agent.pane_id.as_str()))
+                .copied()
+                .or_else(|| workspace.map(|workspace| workspace.label.as_str()))
                 .unwrap_or(agent_label);
             let mut detail = Vec::new();
             let workspace_tab_count = endpoint

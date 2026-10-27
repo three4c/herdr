@@ -8,12 +8,31 @@ pub(super) fn pane_directory(pane: &crate::protocol::ClientShellPane) -> Option<
 }
 
 pub(super) fn directory_name(path: &str) -> &str {
-    // Endpoint paths may be Windows paths even when the TUI runs on Unix.
-    let trimmed = path.trim_end_matches(['/', '\\']);
+    let trimmed = trim_directory_separators(path);
     if trimmed.is_empty() {
         return path;
     }
-    trimmed.rsplit(['/', '\\']).next().unwrap_or(trimmed)
+    if is_windows_path(path) {
+        trimmed.rsplit(['/', '\\']).next().unwrap_or(trimmed)
+    } else {
+        trimmed.rsplit('/').next().unwrap_or(trimmed)
+    }
+}
+
+fn is_windows_path(path: &str) -> bool {
+    // Endpoint paths may belong to another OS. Absolute Windows cwd values use
+    // a drive prefix or UNC prefix; backslashes in Unix names are literal.
+    let bytes = path.as_bytes();
+    path.starts_with("\\\\")
+        || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
+}
+
+fn trim_directory_separators(path: &str) -> &str {
+    if is_windows_path(path) {
+        path.trim_end_matches(['/', '\\'])
+    } else {
+        path.trim_end_matches('/')
+    }
 }
 
 /// Build each label once, scanning the existing pane snapshot once rather than
@@ -55,7 +74,7 @@ pub(super) fn tab_labels(snapshot: &ClientShellSnapshot, tabs: &[&ClientShellTab
             };
             // Ignore trailing separators for duplicate detection, without any
             // filesystem access. Distinct full paths with the same basename stay distinct.
-            if !seen.insert((*index, directory.trim_end_matches(['/', '\\']))) {
+            if !seen.insert((*index, trim_directory_separators(directory))) {
                 continue;
             }
             let label = &mut labels[*index];

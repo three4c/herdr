@@ -20,12 +20,26 @@ pub(super) fn render_tab_sidebar(
     hits: &mut ShellHitMap,
 ) {
     super::render::render_sidebar_background(buffer, area, &config.palette);
-    let content = Rect::new(
+    let mut content = Rect::new(
         area.x,
         area.y,
         area.width.saturating_sub(1),
         area.height.saturating_sub(1),
     );
+    if state.endpoints.len() > 1 || snapshot.is_none() {
+        // Keep Agents at the top, with a bounded, scrollable machine selector
+        // below it. Agentless and disconnected endpoints must remain reachable.
+        let machine_rows = state.endpoints.len().min(u16::MAX as usize) as u16;
+        let machine_height = machine_rows.saturating_add(1).min(content.height / 3);
+        let machines = Rect::new(
+            content.x,
+            content.bottom().saturating_sub(machine_height),
+            content.width,
+            machine_height,
+        );
+        content.height = content.height.saturating_sub(machine_height);
+        super::endpoint_sidebar::render_machine_selector(buffer, machines, config, state, hits);
+    }
     if state.sidebar_collapsed {
         if state.endpoints.len() > 1 || snapshot.is_none() {
             super::endpoint_agents::render_collapsed(

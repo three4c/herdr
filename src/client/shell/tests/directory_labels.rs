@@ -99,12 +99,26 @@ fn directory_tab_labels_handle_remote_windows_unicode_and_root_paths() {
     let mut projected = snapshot();
     for (directory, expected) in [
         ("C:\\work\\herdr\\", "#1 herdr"),
+        ("C:/work\\herdr/", "#1 herdr"),
+        ("\\\\server\\share\\herdr\\", "#1 herdr"),
+        ("/work/foo\\bar/", "#1 foo\\bar"),
+        ("/work/foo\\", "#1 foo\\"),
         ("/Users/test/日本語", "#1 日本語"),
         ("/", "#1 /"),
     ] {
         projected.panes[0].foreground_cwd = Some(directory.into());
         assert_eq!(labels(&projected), [expected]);
     }
+}
+
+#[test]
+fn unix_backslashes_do_not_merge_distinct_directories() {
+    let mut projected = snapshot();
+    projected.panes[0].cwd = Some("/work/foo".into());
+    projected.panes[0].foreground_cwd = None;
+    add_pane(&mut projected, "pane_backslash", Some("/work/foo\\"));
+    add_pane(&mut projected, "pane_duplicate", Some("/work/foo\\/"));
+    assert_eq!(labels(&projected), ["#1 foo / foo\\"]);
 }
 
 #[test]
