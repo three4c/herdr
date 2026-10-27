@@ -2662,6 +2662,14 @@ mod channel_tests {
     #[test]
     fn fork_releases_compare_sequence_even_when_base_version_changes() {
         let mut manifest = crate::fork_distribution::test_manifest(12);
+        let (os, arch) = platform_target();
+        if !crate::fork_distribution::TARGETS.contains(&format!("{os}-{arch}").as_str()) {
+            let error = release_info_from_fork_manifest(&manifest, 11)
+                .err()
+                .expect("unsupported fork platform");
+            assert!(error.contains("unsupported fork target"));
+            return;
+        }
         let release = release_info_from_fork_manifest(&manifest, 11)
             .unwrap()
             .unwrap();
