@@ -4,6 +4,16 @@ import { readFileSync } from "node:fs";
 const workflow: any = Bun.YAML.parse(readFileSync(new URL("../.github/workflows/fork-release.yml", import.meta.url), "utf8"));
 
 describe("aira publishing boundary", () => {
+  test("private website deployments stay in the canonical repository", () => {
+    const website: any = Bun.YAML.parse(readFileSync(new URL("../.github/workflows/website-deploy.yml", import.meta.url), "utf8"));
+    // A job-level gate covers both master pushes and manual dispatches.
+    for (const job of Object.values<any>(website.jobs)) {
+      expect(job.if).toBe("github.repository == 'herdrdev/herdr'");
+    }
+    expect(website.jobs.trigger.steps[0].run).toContain("HERDR_WEBSITE_DEPLOY_HOOK is not configured");
+    expect(website.jobs.trigger.steps[0].run).toContain("exit 1");
+  });
+
   test("only fork tags can publish, and both actors must be fork admins", () => {
     expect(workflow.on).toEqual({ push: { tags: ["aira-v*"] } });
     expect(workflow.permissions).toEqual({ contents: "read" });
