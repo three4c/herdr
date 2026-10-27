@@ -88,6 +88,8 @@ Cross-platform automatic remote installation is disabled; install Aira on the
 SSH host with the same installer or provide a matching `HERDR_REMOTE_BINARY`.
 Same-platform remote binary copying installs the local fork executable as
 `~/.local/bin/herdr-aira`, preserving upstream `herdr` on the SSH host too.
+Connection discovery checks Aira and compatible existing `herdr` candidates,
+so shared sessions and saved SSH machines remain reachable.
 
 The existing update command retains its server restart/handoff prompts. It does
 not automatically convert an already running server to the new binary. Review

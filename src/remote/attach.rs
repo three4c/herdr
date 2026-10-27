@@ -1930,6 +1930,7 @@ emit() {
 }
 if [ -n "$home" ]; then
     emit "$home/.local/bin/herdr-aira"
+    emit "$home/.local/bin/herdr"
 fi
 "#,
     );
@@ -1967,7 +1968,7 @@ fn remote_binary_on_path_any(
     ssh: &RemoteSsh,
     remote_herdr: &RemoteHerdr,
 ) -> io::Result<Option<RemoteHerdr>> {
-    let output = ssh.posix_user_shell_output("command -v herdr-aira")?;
+    let output = ssh.posix_user_shell_output("command -v herdr-aira || command -v herdr")?;
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         if let Some(candidate) = remote_herdr_from_path_discovery(remote_herdr, &stdout) {
@@ -1977,7 +1978,7 @@ fn remote_binary_on_path_any(
 
     // Non-POSIX login shells such as xonsh reject `command -v`; retry through
     // /bin/sh while retaining the login-shell probe for shell-initialized PATHs.
-    let output = ssh.sh_output("command -v herdr-aira\n")?;
+    let output = ssh.sh_output("command -v herdr-aira || command -v herdr\n")?;
     if !output.status.success() {
         return Ok(None);
     }
@@ -2893,6 +2894,7 @@ fn posix_remote_api_discovery_script(platform: &RemotePlatform, session: &str) -
         r#"set -f
 candidates=$(
 command -v herdr-aira
+command -v herdr
 {discovery}
 )
 IFS='
@@ -5667,6 +5669,74 @@ function Get-Process {
         assert!(script.contains("emit \"/run/current-system/sw/bin/herdr\""));
         assert!(script.contains("emit \"/home/linuxbrew/.linuxbrew/bin/herdr\""));
         assert!(!script.contains("emit \"/opt/homebrew/bin/herdr\""));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remote_api_discovery_prefers_aira_and_keeps_compatible_upstream_candidates() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let directory = std::env::temp_dir().join(format!(
+            "herdr fork discovery-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&directory).unwrap();
+        let bin = directory.join("bin");
+        fs::create_dir(&bin).unwrap();
+        let upstream = bin.join("herdr");
+        let aira = bin.join("herdr-aira");
+        let write_binary = |path: &Path, compatible: bool| {
+            let script = if compatible {
+                "#!/bin/sh\nprintf 'herdr-api-bridge-v1\\n'\n"
+            } else {
+                "#!/bin/sh\nexit 2\n"
+            };
+            fs::write(path, script).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+        };
+        let script = posix_remote_api_discovery_script(
+            &RemotePlatform {
+                os: "linux",
+                arch: "x86_64",
+            },
+            "default",
+        );
+        let verify = |expected: &Path| {
+            let output = Command::new("/bin/sh")
+                .args(["-c", &script])
+                .env("PATH", &bin)
+                .env("HOME", &directory)
+                .env("USER", "aira-discovery-fixture")
+                .stdin(Stdio::null())
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(
+                String::from_utf8(output.stdout).unwrap().trim(),
+                expected.to_string_lossy()
+            );
+        };
+
+        write_binary(&upstream, true);
+        verify(&upstream);
+        write_binary(&aira, true);
+        verify(&aira);
+        write_binary(&aira, false);
+        verify(&upstream);
+        write_binary(&upstream, false);
+        let legacy = directory.join(".local/bin/herdr");
+        fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        write_binary(&legacy, true);
+        verify(&legacy);
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
