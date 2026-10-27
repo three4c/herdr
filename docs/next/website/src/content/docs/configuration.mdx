@@ -369,6 +369,8 @@ The symbols are static, so this option does not enable spinner animation.
 
 This fork defaults to a tab-centered sidebar: Spaces is hidden and Agents uses the full sidebar height. Tabs and panes still belong to the existing workspace. Agent primary labels show the last component of each pane's current directory, preferring the foreground process directory and falling back to the shell directory, then the workspace label when neither is available. The label follows directory updates, including in background tabs. Agent kind, state, click-to-focus, and scrolling remain available.
 
+In the desktop Agents list, the primary label is prefixed with the current tab position, for example `#1 herdr` or `#2 dotfiles`, including when only one tab exists. Each agent remains a separate item, even when multiple agents belong to the same tab or directory. Automatic tab numbers are included in this prefix; manually assigned tab names remain available as a secondary token.
+
 Set `visible = true` under `[ui.sidebar.spaces]` to restore the split Spaces/Agents layout. This is a client presentation setting and does not change saved workspaces or the server protocol.
 
 With multiple machines configured, a scrollable machine selector stays below Agents, including machines with no agents yet. Directory-based agent labels also apply in the narrow-screen switcher. Paths are interpreted by their format, so Windows endpoints work on Unix clients and literal backslashes in Unix directory names are preserved.
@@ -397,8 +399,8 @@ Agent rows accept these built-in tokens:
 - `state_icon` — colored icon for the agent's semantic state.
 - `state_text` — `idle`, `working`, `blocked`, `done`, or `unknown`, including a reported display label when present.
 - `machine` — machine label when the client has multiple machines; omitted for a single local machine.
-- `workspace` — pane directory basename in Agent rows (workspace name if the directory is unavailable).
-- `tab` — tab name when available.
+- `workspace` — pane directory basename in Agent rows (workspace name if the directory is unavailable), prefixed with `#<tab position>` in the desktop list. Style rules match the directory name before the prefix is added.
+- `tab` — manually assigned tab name in the desktop Agents list.
 - `pane` — pane name when available.
 - `agent` — detected or reported agent display name.
 - `terminal_title` — latest OSC 0/2 terminal title after safety normalization.

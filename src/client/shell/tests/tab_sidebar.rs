@@ -163,15 +163,113 @@ fn tab_sidebar_directory_labels_handle_remote_paths_roots_and_missing_cwd() {
         projected.panes[0].cwd = cwd.map(str::to_string);
         let row = agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
         assert!(row.rows.iter().flatten().any(|token|
-            matches!(&token.kind, crate::ui::ResolvedTokenKind::Workspace(value) if value == expected)
+            matches!(&token.kind, crate::ui::ResolvedTokenKind::Workspace(value) if value == &format!("#1 {expected}"))
         ), "cwd {cwd:?}");
     }
+}
+
+#[test]
+fn agent_primary_labels_prefix_the_tab_position_without_combining_panes() {
+    let mut projected = directory_snapshot(4);
+    projected.tabs.truncate(2);
+    // Persistent numbers and raw API labels must not determine the displayed number.
+    projected.tabs[1].number = 7;
+    projected.tabs[1].label = "7".into();
+    let expected = ["#1 herdr", "#1 anicru", "#2 anicru", "#2 herdr"];
+    for (index, (tab_id, directory)) in [
+        ("tab_1", "/work/herdr"),
+        ("tab_1", "/work/anicru"),
+        ("tab_2", "/work/anicru"),
+        ("tab_2", "/work/herdr"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        projected.panes[index].tab_id = (*tab_id).into();
+        projected.panes[index].foreground_cwd = Some((*directory).into());
+        projected.agents[index].tab_id = (*tab_id).into();
+    }
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(projected.clone()));
+    state.set_pane_surface(surface());
+    let frame = state.compose(120, 30).unwrap();
+    let rows = frame_rows(&frame);
+    assert_eq!(state.hits.agents.len(), 4);
+    for ((rect, pane_id), label) in state.hits.agents.clone().iter().zip(expected) {
+        let row = &rows[usize::from(rect.y)];
+        assert!(row.contains(label), "{row}");
+        assert!(!row.contains(" · "), "{row}");
+        let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: rect.x,
+            row: rect.y,
+            modifiers: KeyModifiers::empty(),
+        })]);
+        assert!(outcome.actions.iter().any(|action| matches!(action,
+            ClientShellAction::Endpoint { request, .. }
+            if matches!(&request.method, crate::api::schema::Method::PaneFocus(target) if &target.pane_id == pane_id)
+        )));
+    }
+
+    // Even two agents in the same tab and directory remain two distinct entries.
+    projected.revision += 1;
+    projected.panes[1].foreground_cwd = Some("/work/herdr".into());
+    state.set_snapshot(Box::new(projected));
+    let mut pane_surface = surface();
+    pane_surface.projection_revision = 2;
+    state.set_pane_surface(pane_surface);
+    let frame = state.compose(120, 30).unwrap();
+    let rows = frame_rows(&frame);
+    assert_eq!(state.hits.agents.len(), 4);
+    for (rect, _) in &state.hits.agents[..2] {
+        assert!(rows[usize::from(rect.y)].contains("#1 herdr"));
+    }
+}
+
+#[test]
+fn single_tab_agents_show_the_number_and_keep_manual_tab_names() {
+    let mut projected = directory_snapshot(1);
+    let config = ClientShellConfig::from_config(&Config::default());
+    for custom in [false, true] {
+        projected.tabs[0].custom_label = custom;
+        projected.tabs[0].label = "review".into();
+        let row = agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 50, 2));
+        agent_sidebar::render_agent_row(&mut buffer, Rect::new(0, 0, 50, 2), &row, &config);
+        let line = (0..50).map(|x| buffer[(x, 0)].symbol()).collect::<String>();
+        assert!(line.contains("#1 project-1"), "{line}");
+        assert_eq!(line.contains(" · review"), custom, "{line}");
+    }
+}
+
+#[test]
+fn agent_number_prefix_keeps_directory_style_rules_working() {
+    let config: Config = toml::from_str(
+        r#"
+[ui.sidebar.agents]
+rows = [[{ token = "workspace", rules = [{ equals = "project-1", bold = true }] }]]
+"#,
+    )
+    .unwrap();
+    let row = agent_sidebar::agent_row(
+        &directory_snapshot(1),
+        "pane_1",
+        &ClientShellConfig::from_config(&config),
+        None,
+    )
+    .unwrap();
+    assert_eq!(row.rows[0][0].style.bold, Some(true));
+    assert!(
+        matches!(&row.rows[0][0].kind, crate::ui::ResolvedTokenKind::Workspace(label) if label == "#1 project-1")
+    );
 }
 
 #[test]
 fn tab_sidebar_keeps_agents_during_resize_and_routes_remote_clicks() {
     use crate::client::endpoint::{ClientEndpointStatus, ProfileId, SavedSshEndpoint};
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    // Leave room for the machine label and the new tab-number prefix.
+    state.sidebar_width = 36;
     let profile = SavedSshEndpoint {
         id: ProfileId::parse("0123456789abcdef0123456789abcdef").unwrap(),
         label: "Build".into(),

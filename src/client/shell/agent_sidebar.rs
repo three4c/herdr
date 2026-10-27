@@ -409,19 +409,25 @@ pub(super) fn agent_row(
         .workspaces
         .iter()
         .find(|workspace| workspace.workspace_id == agent.workspace_id)?;
-    let tab = snapshot.tabs.iter().find(|tab| tab.tab_id == agent.tab_id);
+    let tab = snapshot
+        .tabs
+        .iter()
+        .filter(|tab| tab.workspace_id == agent.workspace_id)
+        .enumerate()
+        .find(|(_, tab)| tab.tab_id == agent.tab_id);
     let pane = snapshot
         .panes
         .iter()
         .find(|pane| pane.pane_id == agent.pane_id);
-    let tab_count = snapshot
-        .tabs
-        .iter()
-        .filter(|candidate| candidate.workspace_id == agent.workspace_id)
-        .count();
+    // Match the tab bar's current position, independently of persistent tab IDs
+    // and pane grouping. Each agent still produces its own sidebar entry.
+    let directory = pane
+        .and_then(super::directory_labels::pane_directory)
+        .map(super::directory_labels::directory_name)
+        .unwrap_or(&workspace.label);
     let tab_label = tab
-        .filter(|tab| tab_count > 1 || tab.custom_label)
-        .map(|tab| tab.label.as_str());
+        .filter(|(_, tab)| tab.custom_label)
+        .map(|(_, tab)| tab.label.as_str());
     let agent_label = agent
         .display_agent
         .as_deref()
@@ -442,16 +448,13 @@ pub(super) fn agent_row(
         .agent
         .as_deref()
         .and_then(crate::detect::parse_agent_label);
-    let rows = crate::ui::sidebar_agent_rows(
+    let mut rows = crate::ui::sidebar_agent_rows(
         &config.agents,
         crate::ui::AgentTokenContext {
             machine,
             // These paths already come from the runtime snapshot. Keep rendering
             // lexical: no process inspection, canonicalization, or git lookup.
-            workspace: pane
-                .and_then(super::directory_labels::pane_directory)
-                .map(super::directory_labels::directory_name)
-                .unwrap_or(&workspace.label),
+            workspace: directory,
             tab: tab_label,
             pane: agent
                 .title
@@ -465,6 +468,15 @@ pub(super) fn agent_row(
         },
         state_text,
     );
+    if let Some((index, _)) = tab {
+        // Apply the display prefix after resolving styles so rules matching the
+        // directory name keep working. Do not combine separate pane entries.
+        for token in rows.iter_mut().flatten() {
+            if let crate::ui::ResolvedTokenKind::Workspace(label) = &mut token.kind {
+                *label = format!("#{} {label}", index + 1);
+            }
+        }
+    }
     Some(AgentRow {
         pane_id: agent.pane_id.clone(),
         status: agent.agent_status,
