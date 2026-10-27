@@ -39,6 +39,10 @@ rustPlatform.buildRustPackage {
     root = ./..;
     fileset = lib.fileset.intersection (lib.fileset.fromSource (lib.sources.cleanSource ./..)) (
       lib.fileset.unions [
+        # Aira fork: retain the documents embedded by `herdr --licenses`.
+        ../LICENSE
+        ../distribution/fork/FORK-NOTICE.txt
+        ../distribution/fork/THIRD-PARTY-NOTICES.txt
         ../assets
         ../crates
         ../distribution/install.ps1
