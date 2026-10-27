@@ -1,9 +1,55 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const workflow: any = Bun.YAML.parse(readFileSync(new URL("../.github/workflows/fork-release.yml", import.meta.url), "utf8"));
 
 describe("aira publishing boundary", () => {
+  // Both publishing jobs execute these commands on POSIX runners.
+  test.skipIf(process.platform === "win32")("published release discovery handles pagination, drafts, and API failure", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aira-release-discovery-"));
+    try {
+      writeFileSync(join(dir, "gh"), `#!/bin/sh
+[ "\${AIRA_TEST_GH_FAIL:-}" != 1 ] || exit 9
+slurp=no
+filter=no
+for argument do
+  case "$argument" in
+    --slurp) slurp=yes ;;
+    --jq|--template) filter=yes ;;
+  esac
+done
+[ "$slurp:$filter" != yes:yes ] || { echo '--slurp cannot be combined with --jq or --template' >&2; exit 2; }
+printf '%s\\n' '[[{"tag_name":"aira-v1","draft":false},{"tag_name":"aira-v99","draft":true}],[{"tag_name":"aira-v2","draft":false}]]'
+`);
+      chmodSync(join(dir, "gh"), 0o700);
+      const scripts = [
+        workflow.jobs.preflight.steps.find((step: any) => step.id === "release").run,
+        workflow.jobs.publish.steps.find((step: any) => step.name === "Publish complete fork release").run,
+      ];
+      for (const script of scripts) {
+        const lines = script.split("\n");
+        const start = lines.findIndex((line: string) => line.trimStart().startsWith("gh api ") && line.includes("/releases?per_page="));
+        expect(start).toBeGreaterThanOrEqual(0);
+        let end = start;
+        while (end < lines.length && !lines[end].includes('> "$RUNNER_TEMP/published.json"')) end++;
+        expect(end).toBeLessThan(lines.length);
+        const command = lines.slice(start, end + 1).join("\n");
+        const env = { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", AIRA_TEST_GH_FAIL: "" };
+        const result = spawnSync("bash", ["-euo", "pipefail", "-c", command], { env, encoding: "utf8" });
+        expect(result.stderr).toBe("");
+        expect(result.status).toBe(0);
+        expect(JSON.parse(readFileSync(join(dir, "published.json"), "utf8"))).toEqual(["aira-v1", "aira-v2"]);
+        const failed = spawnSync("bash", ["-euo", "pipefail", "-c", command], { env: { ...env, AIRA_TEST_GH_FAIL: "1" }, encoding: "utf8" });
+        expect(failed.status).toBe(9);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("private website deployments stay in the canonical repository", () => {
     const website: any = Bun.YAML.parse(readFileSync(new URL("../.github/workflows/website-deploy.yml", import.meta.url), "utf8"));
     // A job-level gate covers both master pushes and manual dispatches.
