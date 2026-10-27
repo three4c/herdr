@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   trigger:
+    # Aira fork: the private website belongs to the canonical repository.
+    if: github.repository == 'herdrdev/herdr'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
