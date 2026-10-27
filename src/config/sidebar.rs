@@ -447,7 +447,7 @@ impl Default for AgentsSidebarConfig {
                     AgentSidebarToken::Workspace,
                     AgentSidebarToken::Tab,
                 ],
-                vec![AgentSidebarToken::Agent],
+                vec![AgentSidebarToken::Agent, AgentSidebarToken::StateText],
             ],
             rows_by_agent: BTreeMap::new(),
             row_gap: DEFAULT_SIDEBAR_ROW_GAP,
@@ -458,6 +458,8 @@ impl Default for AgentsSidebarConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct SpacesSidebarConfig {
+    /// Show the workspace section above Agents. Defaults to false in this fork.
+    pub visible: bool,
     #[serde(deserialize_with = "deserialize_sidebar_rows")]
     pub rows: SpaceSidebarRows,
     pub row_gap: u16,
@@ -466,6 +468,7 @@ pub struct SpacesSidebarConfig {
 impl Default for SpacesSidebarConfig {
     fn default() -> Self {
         Self {
+            visible: false,
             rows: vec![
                 vec![SpaceSidebarToken::StateIcon, SpaceSidebarToken::Workspace],
                 vec![SpaceSidebarToken::Branch, SpaceSidebarToken::GitStatus],
@@ -498,10 +501,11 @@ mod tests {
                     AgentSidebarToken::Workspace,
                     AgentSidebarToken::Tab,
                 ],
-                vec![AgentSidebarToken::Agent],
+                vec![AgentSidebarToken::Agent, AgentSidebarToken::StateText],
             ]
         );
         assert!(config.agents.rows_by_agent.is_empty());
+        assert!(!config.spaces.visible);
         assert_eq!(config.agents.row_gap, 0);
         assert_eq!(
             config.spaces.rows,
@@ -525,6 +529,7 @@ row_gap = 1
 claude = [["terminal_title_stripped"], ["agent", "$model"]]
 
 [ui.sidebar.spaces]
+visible = true
 rows = [["workspace"], ["$jj_status"]]
 row_gap = 3
 "#,
@@ -563,6 +568,7 @@ row_gap = 3
             vec![SpaceSidebarToken::Custom("jj_status".into())]
         );
         assert_eq!(config.ui.sidebar.spaces.row_gap, 3);
+        assert!(config.ui.sidebar.spaces.visible);
     }
 
     #[test]

@@ -219,7 +219,7 @@ fn mobile_header_and_switcher_render_released_sections_and_stable_targets() {
         .map(|cell| cell.symbol.as_str())
         .collect::<String>();
     assert!(header_text.contains("client-shell"));
-    assert!(header_text.contains("tab 1"));
+    assert!(header_text.contains("tab #1 repo"));
     assert!(header_text.contains("blocked"));
     assert!(header_text.contains("switch"));
     assert_eq!(state.hits.mobile_switch, Rect::new(34, 0, 10, 2));

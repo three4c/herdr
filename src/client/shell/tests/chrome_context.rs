@@ -160,6 +160,7 @@ fn focused_workspace_change_reveals_new_workspace_in_full_sidebar() {
         .collect();
 
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(initial));
     state.set_pane_surface(surface());
     state.compose(106, 20).expect("full sidebar");
@@ -194,6 +195,7 @@ fn focused_workspace_change_reveals_new_workspace_in_full_sidebar() {
 #[test]
 fn client_owned_sidebar_dividers_resize_live() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     state.compose(106, 30).expect("expanded sidebar");
@@ -297,6 +299,7 @@ fn client_owned_sidebar_dividers_resize_live() {
 #[test]
 fn context_menus_capture_stable_targets_and_route_actions() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     state.compose(106, 20).expect("composed frame");
@@ -428,8 +431,76 @@ fn global_menu_opens_from_sidebar_and_routes_client_actions() {
 }
 
 #[test]
+fn default_new_tab_routes_create_automatic_tabs_without_a_name_dialog() {
+    for route in ["keyboard", "plus", "context menu", "mobile"] {
+        let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+        state.set_snapshot(Box::new(snapshot()));
+        state.set_pane_surface(surface());
+        state.compose(106, 20).unwrap();
+        let outcome = match route {
+            "keyboard" => state.handle_input_bytes(b"\x02c"),
+            "plus" => {
+                let rect = state.hits.new_tab;
+                state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: rect.x + 1,
+                    row: rect.y,
+                    modifiers: KeyModifiers::empty(),
+                })])
+            }
+            "context menu" => {
+                state.open_tab_context_menu("tab_1".into(), 30, 1);
+                let Some(ClientShellOverlay::ContextMenu(menu)) = state.overlay.as_ref() else {
+                    panic!("tab context menu");
+                };
+                let index = menu
+                    .items()
+                    .iter()
+                    .position(|item| item.action == ClientContextMenuAction::NewTab)
+                    .unwrap();
+                let mut outcome = ClientShellInput::default();
+                state.activate_context_menu_item(index, &mut outcome);
+                outcome
+            }
+            "mobile" => {
+                state.mode = ClientShellMode::Navigate;
+                state.compose(44, 20).unwrap();
+                let rect = state
+                    .hits
+                    .mobile_targets
+                    .iter()
+                    .find_map(|(rect, target)| {
+                        matches!(target, ClientMobileTarget::NewTab).then_some(*rect)
+                    })
+                    .unwrap();
+                state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: rect.x + 1,
+                    row: rect.y,
+                    modifiers: KeyModifiers::empty(),
+                })])
+            }
+            _ => unreachable!(),
+        };
+        assert!(state.overlay.is_none(), "unexpected overlay for {route}");
+        assert!(
+            outcome.actions.iter().any(|action| matches!(action,
+                ClientShellAction::Endpoint { request, .. }
+                if matches!(&request.method, crate::api::schema::Method::TabCreate(params)
+                    if params.workspace_id.as_deref() == Some("ws_1")
+                        && params.label.is_none() && params.focus)
+            )),
+            "expected automatic tab creation for {route}: {:?}",
+            outcome.actions
+        );
+    }
+}
+
+#[test]
 fn new_tab_overlay_owns_text_cursor_and_submits_public_api_request() {
-    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    let mut config = Config::default();
+    config.ui.prompt_new_tab_name = true;
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     let mut open = ClientShellInput::default();

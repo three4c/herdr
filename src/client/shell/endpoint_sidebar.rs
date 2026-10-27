@@ -579,6 +579,101 @@ pub(super) fn render_expanded(
     );
 }
 
+/// Machine-only navigation for the tab-centered sidebar; reuse the existing
+/// machine hit routing, diagnostics, and workspace-list scroll handling.
+pub(super) fn render_machine_selector(
+    buffer: &mut Buffer,
+    area: Rect,
+    config: &ClientShellConfig,
+    state: &mut ShellRenderState<'_>,
+    hits: &mut ShellHitMap,
+) {
+    if area.height < 2 || area.width == 0 {
+        return;
+    }
+    let palette = &config.palette;
+    put_text(
+        buffer,
+        area.x,
+        area.y,
+        area.width,
+        if state.sidebar_collapsed {
+            " M"
+        } else {
+            " machines"
+        },
+        Style::default()
+            .fg(palette.overlay0)
+            .add_modifier(Modifier::BOLD),
+    );
+    let body = Rect::new(area.x, area.y + 1, area.width, area.height - 1);
+    hits.workspace_body = body;
+    // Every machine occupies one row, so derive metrics without allocating
+    // per-endpoint height and gap arrays on each frame.
+    let viewport_rows = state.endpoints.len().min(usize::from(body.height));
+    let max_scroll = state.endpoints.len().saturating_sub(viewport_rows);
+    let metrics = crate::pane::ScrollMetrics {
+        offset_from_bottom: max_scroll.saturating_sub(*state.workspace_scroll),
+        max_offset_from_bottom: max_scroll,
+        viewport_rows,
+    };
+    hits.workspace_max_scroll = metrics.max_offset_from_bottom;
+    hits.workspace_scroll_metrics = Some(metrics);
+    *state.workspace_scroll = metrics
+        .max_offset_from_bottom
+        .saturating_sub(metrics.offset_from_bottom);
+    let scrollbar = metrics.max_offset_from_bottom > 0 && body.width > 1;
+    let width = body.width.saturating_sub(u16::from(scrollbar));
+    for (row, endpoint) in state
+        .endpoints
+        .iter()
+        .skip(*state.workspace_scroll)
+        .take(usize::from(body.height))
+        .enumerate()
+    {
+        let rect = Rect::new(body.x, body.y + row as u16, width, 1);
+        let active = &endpoint.endpoint_id == state.active_endpoint_id;
+        let status_badge = if state.sidebar_collapsed {
+            let (symbol, _, color) = endpoint_status_presentation(endpoint.status, palette);
+            let initial = endpoint.label.chars().next().unwrap_or('?');
+            put_text(
+                buffer,
+                rect.x,
+                rect.y,
+                rect.width,
+                &format!("{initial}{symbol}"),
+                Style::default().fg(color).bg(if active {
+                    palette.active_row_bg
+                } else {
+                    palette.sidebar_bg
+                }),
+            );
+            Rect::default()
+        } else {
+            render_endpoint_row(
+                buffer,
+                rect,
+                "",
+                endpoint,
+                active,
+                state.machine_diagnostics,
+                palette,
+            )
+        };
+        hits.machines.push(MachineHit {
+            rect,
+            status_badge,
+            collapse_toggle: Rect::default(),
+            endpoint_id: endpoint.endpoint_id.clone(),
+        });
+    }
+    if scrollbar {
+        let track = Rect::new(body.right() - 1, body.y, 1, body.height);
+        hits.workspace_scrollbar = track;
+        super::scroll::render_list_scrollbar(buffer, track, metrics, palette);
+    }
+}
+
 fn active_endpoint_label<'a>(state: &'a ShellRenderState<'_>) -> &'a str {
     state
         .endpoints

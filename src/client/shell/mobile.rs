@@ -222,10 +222,8 @@ fn compact_tab_status(snapshot: &ClientShellSnapshot, workspace: &ClientShellWor
         .iter()
         .position(|tab| tab.tab_id == workspace.active_tab_id)
         .unwrap_or(0);
-    let label = tabs
-        .get(active)
-        .map(|tab| tab.label.as_str())
-        .unwrap_or("1");
+    let labels = super::directory_labels::tab_labels(snapshot, &tabs);
+    let label = labels.get(active).map(String::as_str).unwrap_or("#1");
     if tabs.len() <= 1 {
         format!("tab {label}")
     } else {
@@ -634,6 +632,26 @@ fn mobile_items(
                 target: None,
             });
         }
+        // Index existing snapshots once instead of scanning every pane per agent.
+        let directory_names = endpoints
+            .iter()
+            .filter_map(|endpoint| {
+                endpoint
+                    .snapshot
+                    .as_deref()
+                    .map(|snapshot| (endpoint, snapshot))
+            })
+            .flat_map(|(endpoint, snapshot)| {
+                snapshot.panes.iter().filter_map(move |pane| {
+                    super::directory_labels::pane_directory(pane).map(|directory| {
+                        (
+                            (&endpoint.endpoint_id, pane.pane_id.as_str()),
+                            super::directory_labels::directory_name(directory),
+                        )
+                    })
+                })
+            })
+            .collect::<HashMap<_, _>>();
         for row in agents {
             let endpoint = row.endpoint;
             let agent = row.agent;
@@ -653,8 +671,10 @@ fn mobile_items(
                 .or(agent.name.as_deref())
                 .or(agent.agent.as_deref())
                 .unwrap_or("agent");
-            let primary = workspace
-                .map(|workspace| workspace.label.as_str())
+            let primary = directory_names
+                .get(&(endpoint.endpoint_id, agent.pane_id.as_str()))
+                .copied()
+                .or_else(|| workspace.map(|workspace| workspace.label.as_str()))
                 .unwrap_or(agent_label);
             let mut detail = Vec::new();
             let workspace_tab_count = endpoint
@@ -886,12 +906,13 @@ fn mobile_items(
             ClientMobileTarget::NewTab,
             palette,
         ));
-        for (index, tab) in snapshot
+        let tabs = snapshot
             .tabs
             .iter()
             .filter(|tab| tab.workspace_id == workspace_id)
-            .enumerate()
-        {
+            .collect::<Vec<_>>();
+        let labels = super::directory_labels::tab_labels(snapshot, &tabs);
+        for (index, tab) in tabs.iter().enumerate() {
             let background = if tab.focused {
                 palette.surface_dim
             } else {
@@ -900,7 +921,7 @@ fn mobile_items(
             let label = if tab.custom_label {
                 format!("{} · {}", index + 1, tab.label)
             } else {
-                format!("tab {}", tab.label)
+                format!("tab {}", labels[index])
             };
             let label = format!(
                 "  {}",

@@ -125,7 +125,7 @@ fn server_restores_while_git_metadata_is_blocked() {
         });
         fs::write(data_dir.join("session.json"), snapshot.to_string()).unwrap();
         fs::write(data_dir.join("config.toml"),
-            "onboarding = false\n[terminal]\ndefault_shell = \"/bin/sh\"\n[ui.sidebar.spaces]\nrows = [[\"workspace\"]]\n").unwrap();
+            "onboarding = false\n[terminal]\ndefault_shell = \"/bin/sh\"\n[ui.sidebar.spaces]\nvisible = true\nrows = [[\"workspace\"]]\n").unwrap();
         support::register_runtime_dir(&runtime_dir);
         let child = Command::new(env!("CARGO_BIN_EXE_herdr"))
             .arg("server")

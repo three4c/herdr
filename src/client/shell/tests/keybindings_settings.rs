@@ -68,6 +68,7 @@ fn shell_new_controls_use_the_same_client_action_routes_as_keybinds() {
     config.ui.prompt_new_workspace_name = false;
     config.ui.prompt_new_tab_name = true;
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     state.compose(106, 20).expect("composed frame");
@@ -328,7 +329,7 @@ fn inactive_auto_named_tab_label_does_not_stack_terminal_faint() {
         .expect("inactive tab hit")
         .0;
     let buffer = frame.to_ratatui_buffer().expect("tab bar buffer");
-    let (x, y) = cell_symbol_position(&frame, rect, "beta");
+    let (x, y) = cell_symbol_position(&frame, rect, "#2");
     let cell = buffer.cell((x, y)).expect("inactive tab cell");
     assert!(
         !cell.modifier.contains(Modifier::DIM),

@@ -10,6 +10,152 @@ use ratatui::{
 
 use super::*;
 
+/// Client-only layout: keep session organization intact and give Agents the sidebar.
+pub(super) fn render_tab_sidebar(
+    buffer: &mut Buffer,
+    area: Rect,
+    snapshot: Option<&ClientShellSnapshot>,
+    config: &ClientShellConfig,
+    state: &mut super::render::ShellRenderState<'_>,
+    hits: &mut ShellHitMap,
+) {
+    super::render::render_sidebar_background(buffer, area, &config.palette);
+    let mut content = Rect::new(
+        area.x,
+        area.y,
+        area.width.saturating_sub(1),
+        area.height.saturating_sub(1),
+    );
+    if state.endpoints.len() > 1 || snapshot.is_none() {
+        // Keep Agents at the top, with a bounded, scrollable machine selector
+        // below it. Agentless and disconnected endpoints must remain reachable.
+        let machine_rows = state.endpoints.len().min(u16::MAX as usize) as u16;
+        let machine_height = machine_rows.saturating_add(1).min(content.height / 3);
+        let machines = Rect::new(
+            content.x,
+            content.bottom().saturating_sub(machine_height),
+            content.width,
+            machine_height,
+        );
+        content.height = content.height.saturating_sub(machine_height);
+        super::endpoint_sidebar::render_machine_selector(buffer, machines, config, state, hits);
+    }
+    if state.sidebar_collapsed {
+        if state.endpoints.len() > 1 || snapshot.is_none() {
+            super::endpoint_agents::render_collapsed(
+                buffer,
+                content,
+                state.endpoints,
+                state.active_endpoint_id,
+                config,
+                hits,
+            );
+        } else if let Some(snapshot) = snapshot {
+            for (index, pane_id) in ordered_agent_pane_ids(snapshot, config.agent_panel_sort)
+                .into_iter()
+                .take(content.height as usize)
+                .enumerate()
+            {
+                let Some(agent) = snapshot
+                    .agents
+                    .iter()
+                    .find(|agent| agent.pane_id == pane_id)
+                else {
+                    continue;
+                };
+                let rect = Rect::new(content.x, content.y + index as u16, content.width, 1);
+                let style = Style::default().fg(status_color(agent.agent_status, &config.palette));
+                buffer.set_style(
+                    rect,
+                    if agent.focused {
+                        style.bg(config.palette.active_row_bg)
+                    } else {
+                        style
+                    },
+                );
+                put_text(
+                    buffer,
+                    rect.x,
+                    rect.y,
+                    rect.width,
+                    status_icon(agent.agent_status, config.status_indicators),
+                    style,
+                );
+                hits.agents.push((rect, pane_id));
+            }
+        }
+    } else {
+        hits.sidebar_divider = Rect::new(
+            area.right().saturating_sub(1),
+            area.y,
+            u16::from(area.width > 0),
+            area.height,
+        );
+        if state.endpoints.len() > 1 || snapshot.is_none() {
+            super::endpoint_agents::render_expanded(
+                buffer,
+                content,
+                snapshot.and_then(|snapshot| snapshot.agent_view_label.as_deref()),
+                state.endpoints,
+                state.active_endpoint_id,
+                config,
+                state.agent_scroll,
+                hits,
+            );
+        } else if let Some(snapshot) = snapshot {
+            render_agent_panel(buffer, content, snapshot, config, state.agent_scroll, hits);
+        }
+        if config.mouse_capture && !content.is_empty() {
+            let attention = snapshot.is_some_and(super::global_menu::global_menu_attention);
+            hits.global_launcher = Rect::new(
+                content.x,
+                area.bottom().saturating_sub(1),
+                content
+                    .width
+                    .saturating_sub(2)
+                    .min(if attention { 8 } else { 6 }),
+                1,
+            );
+            super::render::put_right_text(
+                buffer,
+                hits.global_launcher,
+                hits.global_launcher.y,
+                if attention { "● menu" } else { "menu" },
+                Style::default().fg(config.palette.overlay0),
+            );
+            if attention && hits.global_launcher.width >= 6 {
+                buffer[(hits.global_launcher.right() - 6, hits.global_launcher.y)].set_style(
+                    Style::default()
+                        .fg(config.palette.accent)
+                        .add_modifier(Modifier::BOLD),
+                );
+            }
+        }
+    }
+    hits.sidebar_toggle = Rect::new(
+        content.right().saturating_sub(1),
+        area.bottom().saturating_sub(1),
+        u16::from(content.width > 0),
+        u16::from(area.height > 0),
+    );
+    put_text(
+        buffer,
+        hits.sidebar_toggle.x,
+        hits.sidebar_toggle.y,
+        hits.sidebar_toggle.width,
+        if state.sidebar_collapsed { "»" } else { "«" },
+        Style::default().fg(
+            if state.sidebar_collapsed
+                && snapshot.is_some_and(super::global_menu::global_menu_attention)
+            {
+                config.palette.accent
+            } else {
+                config.palette.overlay0
+            },
+        ),
+    );
+}
+
 pub(super) struct AgentRow {
     pub(super) pane_id: String,
     pub(super) status: crate::api::schema::AgentStatus,
@@ -97,21 +243,24 @@ pub(super) fn render_agent_panel_header(
     if area.height == 0 {
         return false;
     }
-    put_text(
-        buffer,
-        area.x,
-        area.y,
-        area.width,
-        &"─".repeat(area.width as usize),
-        Style::default().fg(config.palette.surface_dim),
-    );
-    if area.height < 2 {
+    if config.spaces.visible {
+        put_text(
+            buffer,
+            area.x,
+            area.y,
+            area.width,
+            &"─".repeat(area.width as usize),
+            Style::default().fg(config.palette.surface_dim),
+        );
+    }
+    let header_y = area.y + u16::from(config.spaces.visible);
+    if header_y >= area.bottom() {
         return false;
     }
     put_text(
         buffer,
         area.x,
-        area.y + 1,
+        header_y,
         area.width,
         " agents",
         Style::default()
@@ -125,7 +274,7 @@ pub(super) fn render_agent_panel_header(
     let sort_width = display_width(sort_label).min(area.width as usize) as u16;
     let sort_rect = Rect::new(
         area.right().saturating_sub(sort_width),
-        area.y + 1,
+        header_y,
         sort_width,
         1,
     );
@@ -162,11 +311,12 @@ pub(super) fn render_agent_list<T>(
     row_lines: impl Fn(&T) -> usize,
     mut render_row: impl FnMut(&mut Buffer, Rect, &T, &mut ShellHitMap),
 ) {
+    let header_rows = if config.spaces.visible { 3 } else { 2 };
     let body = Rect::new(
         area.x,
-        area.y.saturating_add(3),
+        area.y.saturating_add(header_rows),
         area.width,
-        area.height.saturating_sub(3),
+        area.height.saturating_sub(header_rows),
     );
     hits.agent_body = body;
     if body.is_empty() || rows.is_empty() {
@@ -259,19 +409,25 @@ pub(super) fn agent_row(
         .workspaces
         .iter()
         .find(|workspace| workspace.workspace_id == agent.workspace_id)?;
-    let tab = snapshot.tabs.iter().find(|tab| tab.tab_id == agent.tab_id);
+    let tab = snapshot
+        .tabs
+        .iter()
+        .filter(|tab| tab.workspace_id == agent.workspace_id)
+        .enumerate()
+        .find(|(_, tab)| tab.tab_id == agent.tab_id);
     let pane = snapshot
         .panes
         .iter()
         .find(|pane| pane.pane_id == agent.pane_id);
-    let tab_count = snapshot
-        .tabs
-        .iter()
-        .filter(|candidate| candidate.workspace_id == agent.workspace_id)
-        .count();
+    // Match the tab bar's current position, independently of persistent tab IDs
+    // and pane grouping. Each agent still produces its own sidebar entry.
+    let directory = pane
+        .and_then(super::directory_labels::pane_directory)
+        .map(super::directory_labels::directory_name)
+        .unwrap_or(&workspace.label);
     let tab_label = tab
-        .filter(|tab| tab_count > 1 || tab.custom_label)
-        .map(|tab| tab.label.as_str());
+        .filter(|(_, tab)| tab.custom_label)
+        .map(|(_, tab)| tab.label.as_str());
     let agent_label = agent
         .display_agent
         .as_deref()
@@ -292,11 +448,13 @@ pub(super) fn agent_row(
         .agent
         .as_deref()
         .and_then(crate::detect::parse_agent_label);
-    let rows = crate::ui::sidebar_agent_rows(
+    let mut rows = crate::ui::sidebar_agent_rows(
         &config.agents,
         crate::ui::AgentTokenContext {
             machine,
-            workspace: &workspace.label,
+            // These paths already come from the runtime snapshot. Keep rendering
+            // lexical: no process inspection, canonicalization, or git lookup.
+            workspace: directory,
             tab: tab_label,
             pane: agent
                 .title
@@ -310,6 +468,15 @@ pub(super) fn agent_row(
         },
         state_text,
     );
+    if let Some((index, _)) = tab {
+        // Apply the display prefix after resolving styles so rules matching the
+        // directory name keep working. Do not combine separate pane entries.
+        for token in rows.iter_mut().flatten() {
+            if let crate::ui::ResolvedTokenKind::Workspace(label) = &mut token.kind {
+                *label = format!("#{} {label}", index + 1);
+            }
+        }
+    }
     Some(AgentRow {
         pane_id: agent.pane_id.clone(),
         status: agent.agent_status,
