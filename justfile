@@ -1,3 +1,4 @@
+# Aira fork: adds personal release and license validation recipes.
 # herdr task runner
 set windows-shell := ["cmd.exe", "/d", "/s", "/c"]
 
@@ -13,8 +14,25 @@ test:
 
 # Run repository maintenance contract tests
 maintenance-test:
+    {{python}} scripts/fork_licenses.py check
+    {{python}} -m unittest scripts.test_fork_distribution
     {{python}} -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_config_reference_check scripts.test_docs_translation_parity scripts.test_hermes_integration_asset scripts.test_package_windows_conpty scripts.test_preview scripts.test_release scripts.test_unix_installer scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty scripts.test_windows_cross scripts.test_windows_input
     bun test scripts/release-workflows.test.ts
+    bun test scripts/fork-release-workflow.test.ts
+
+# Validate the personal fork's installer and publishing contract without building.
+fork-distribution-test:
+    {{python}} scripts/fork_licenses.py check
+    {{python}} -m unittest scripts.test_fork_distribution
+    bun test scripts/fork-release-workflow.test.ts
+
+# Exercise real fork binaries in temporary paths, with no server or network.
+fork-update-smoke $old $new:
+    {{python}} scripts/smoke_fork_update.py --old "$old" --new "$new"
+
+# Regenerate preserved notices after reviewing changed dependencies.
+fork-licenses-generate:
+    {{python}} scripts/fork_licenses.py generate
 
 # Local interactive Windows Terminal input qualification (never runs in normal CI).
 [windows]

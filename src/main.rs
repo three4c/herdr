@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use std::io;
 
 pub(crate) const HERDR_ENV_VAR: &str = "HERDR_ENV";
@@ -23,6 +24,7 @@ mod config;
 mod copy_mode;
 mod detect;
 mod events;
+mod fork_distribution;
 use ghostty_vt as ghostty;
 mod handoff_runtime;
 mod input;
@@ -587,7 +589,10 @@ fn main() -> io::Result<()> {
             }
             Err(err) => {
                 eprintln!("{err}");
-                eprintln!("usage: herdr update [--handoff]");
+                eprintln!(
+                    "usage: {} update [--handoff]",
+                    crate::build_info::executable_name()
+                );
                 std::process::exit(2);
             }
         };
@@ -606,31 +611,33 @@ fn main() -> io::Result<()> {
 
     if args.iter().any(|a| a == "--help" || a == "-h") {
         platform::begin_cli_output();
-        println!("herdr — terminal workspace manager for AI coding agents");
+        let executable = crate::build_info::executable_name();
+        println!("{executable} — terminal workspace manager for AI coding agents");
         println!();
-        println!("Usage: herdr [options]");
-        println!("       herdr --session <name> [options]");
-        println!("       herdr --machine <label-or-id> <command>");
-        println!("       herdr --remote <ssh-target> [--session <name>]");
-        println!("       herdr session attach <name>");
-        println!("       herdr completion zsh");
-        println!("       herdr update [--handoff]");
-        println!("       herdr channel set <stable|preview>");
-        println!("       herdr machine <subcommand> ...");
-        println!("       herdr server stop");
-        println!("       herdr server reload-config");
-        println!("       herdr api <subcommand> ...");
-        println!("       herdr completion <shell>");
-        println!("       herdr config <subcommand> ...");
-        println!("       herdr channel <subcommand> ...");
-        println!("       herdr workspace <subcommand> ...");
-        println!("       herdr worktree <subcommand> ...");
-        println!("       herdr tab <subcommand> ...");
-        println!("       herdr notification <subcommand> ...");
-        println!("       herdr agent <subcommand> ...");
-        println!("       herdr pane <subcommand> ...");
-        println!("       herdr session <subcommand> ...");
-        println!("       herdr integration <subcommand> ...");
+        println!("Usage: {executable} [options]");
+        println!("       {executable} --session <name> [options]");
+        println!("       {executable} --machine <label-or-id> <command>");
+        println!("       {executable} --remote <ssh-target> [--session <name>]");
+        println!("       {executable} session attach <name>");
+        println!("       {executable} completion zsh");
+        println!("       {executable} update [--handoff]");
+        println!("       {executable} --licenses");
+        println!("       {executable} channel show");
+        println!("       {executable} machine <subcommand> ...");
+        println!("       {executable} server stop");
+        println!("       {executable} server reload-config");
+        println!("       {executable} api <subcommand> ...");
+        println!("       {executable} completion <shell>");
+        println!("       {executable} config <subcommand> ...");
+        println!("       {executable} channel <subcommand> ...");
+        println!("       {executable} workspace <subcommand> ...");
+        println!("       {executable} worktree <subcommand> ...");
+        println!("       {executable} tab <subcommand> ...");
+        println!("       {executable} notification <subcommand> ...");
+        println!("       {executable} agent <subcommand> ...");
+        println!("       {executable} pane <subcommand> ...");
+        println!("       {executable} session <subcommand> ...");
+        println!("       {executable} integration <subcommand> ...");
         println!();
         println!("Common commands:");
         for (command, description) in [
@@ -646,8 +653,8 @@ fn main() -> io::Result<()> {
                 "Stop the running server via the API socket",
             ),
             (
-                "herdr channel set <stable|preview>",
-                "Choose the stable or preview update channel",
+                "herdr channel show",
+                "Show the Aira update channel (switching is disabled)",
             ),
             (
                 "herdr server reload-config",
@@ -659,7 +666,7 @@ fn main() -> io::Result<()> {
             ),
             (
                 "herdr channel <subcommand>",
-                "Manage the stable or preview update channel",
+                "Inspect the Aira update channel",
             ),
             ("herdr machine <subcommand>", "Manage saved SSH machines"),
             (
@@ -696,11 +703,15 @@ fn main() -> io::Result<()> {
                 "Manage built-in agent integrations",
             ),
         ] {
+            let command = command.replacen("herdr", executable, 1);
             println!("  {command:<32} {description}");
         }
         println!();
         println!("Advanced commands:");
-        println!("  {:<32} Run as headless server", "herdr server");
+        println!(
+            "  {:<32} Run as headless server",
+            format!("{executable} server")
+        );
         println!();
         println!("Options:");
         println!("  --session <name>    Use or create a named persistent session");
@@ -711,6 +722,7 @@ fn main() -> io::Result<()> {
         println!("  --handoff           Opt into live handoff for update or remote attach");
         println!("  --default-config    Print default configuration and exit");
         println!("  --skill             Print the agent skill file and exit");
+        println!("  --licenses          Print bundled licenses and notices");
         println!("  --version, -V       Print version and exit");
         println!("  --help, -h          Show this help");
         println!();
@@ -719,13 +731,27 @@ fn main() -> io::Result<()> {
         println!("Env:    HERDR_CONFIG_PATH overrides config file path");
         println!("Home:   https://herdr.dev");
         println!();
-        println!("{}", cli::AGENT_HELP_FOOTER);
+        println!(
+            "{}",
+            cli::AGENT_HELP_FOOTER.replace("herdr --skill", &format!("{executable} --skill"))
+        );
         return Ok(());
     }
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
         platform::begin_cli_output();
         println!("herdr {}", crate::build_info::version());
+        return Ok(());
+    }
+
+    if args.iter().any(|arg| arg == "--licenses") {
+        platform::begin_cli_output();
+        print!("{}", include_str!("../LICENSE"));
+        print!("\n{}", include_str!("../distribution/fork/FORK-NOTICE.txt"));
+        print!(
+            "\n{}",
+            include_str!("../distribution/fork/THIRD-PARTY-NOTICES.txt")
+        );
         return Ok(());
     }
 

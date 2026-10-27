@@ -1,3 +1,4 @@
+// Aira fork: expect the distinct command in server compatibility guidance tests.
 //! Auto-detect launch behavior for the `herdr` command.
 //!
 //! When the user runs `herdr` with no subcommand:
@@ -668,11 +669,11 @@ test "$sid" = "$$"
             "unexpected error: {message}"
         );
         assert!(
-            message.contains("Run `herdr session stop work`"),
+            message.contains("Run `herdr-aira session stop work`"),
             "unexpected error: {message}"
         );
         assert!(
-            message.contains("then run `herdr session attach work` again"),
+            message.contains("then run `herdr-aira session attach work` again"),
             "unexpected error: {message}"
         );
         std::env::remove_var("XDG_CONFIG_HOME");

@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 //! Remote thin-client launcher over SSH command stdio.
 
 #[cfg(unix)]
@@ -497,7 +498,7 @@ impl RemoteHerdr {
                 RemoteExecutable::WindowsPath("herdr.exe".to_string()),
             )
         } else {
-            let install_suffix = ".local/bin/herdr".to_string();
+            let install_suffix = ".local/bin/herdr-aira".to_string();
             let shell_path = format!("\"$HOME/{install_suffix}\"");
             (install_suffix, RemoteExecutable::PosixShellPath(shell_path))
         };
@@ -1928,6 +1929,7 @@ emit() {
     fi
 }
 if [ -n "$home" ]; then
+    emit "$home/.local/bin/herdr-aira"
     emit "$home/.local/bin/herdr"
 fi
 "#,
@@ -1966,7 +1968,7 @@ fn remote_binary_on_path_any(
     ssh: &RemoteSsh,
     remote_herdr: &RemoteHerdr,
 ) -> io::Result<Option<RemoteHerdr>> {
-    let output = ssh.posix_user_shell_output("command -v herdr")?;
+    let output = ssh.posix_user_shell_output("command -v herdr-aira || command -v herdr")?;
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         if let Some(candidate) = remote_herdr_from_path_discovery(remote_herdr, &stdout) {
@@ -1976,7 +1978,7 @@ fn remote_binary_on_path_any(
 
     // Non-POSIX login shells such as xonsh reject `command -v`; retry through
     // /bin/sh while retaining the login-shell probe for shell-initialized PATHs.
-    let output = ssh.sh_output("command -v herdr\n")?;
+    let output = ssh.sh_output("command -v herdr-aira || command -v herdr\n")?;
     if !output.status.success() {
         return Ok(None);
     }
@@ -2657,7 +2659,7 @@ fn version_label(version: Option<&str>) -> &str {
 }
 
 fn warn_if_remote_bin_not_on_path(ssh: &RemoteSsh) -> io::Result<()> {
-    let output = ssh.posix_user_shell_output("command -v herdr")?;
+    let output = ssh.posix_user_shell_output("command -v herdr-aira")?;
     if output.status.success()
         && remote_shell_resolves_managed_install(&String::from_utf8_lossy(&output.stdout))
     {
@@ -2665,7 +2667,7 @@ fn warn_if_remote_bin_not_on_path(ssh: &RemoteSsh) -> io::Result<()> {
     }
 
     eprintln!(
-        "herdr: installed remote binary to ~/.local/bin/herdr, but the remote shell does not resolve `herdr` to that path"
+        "herdr: installed remote binary to ~/.local/bin/herdr-aira, but the remote shell does not resolve `herdr-aira` to that path"
     );
     Ok(())
 }
@@ -2675,7 +2677,7 @@ fn remote_shell_resolves_managed_install(stdout: &str) -> bool {
         .lines()
         .next()
         .map(str::trim)
-        .is_some_and(|path| path.ends_with("/.local/bin/herdr"))
+        .is_some_and(|path| path.ends_with("/.local/bin/herdr-aira"))
 }
 
 fn download_release_asset(platform: &RemotePlatform) -> io::Result<InstallSource> {
@@ -2750,6 +2752,11 @@ fn preview_assets_for_build<'a>(
 }
 
 fn remote_release_asset(asset_key: &str) -> io::Result<RemoteReleaseAsset> {
+    if crate::build_info::is_fork() {
+        return Err(io::Error::other(
+            "Automatic cross-platform remote installation is disabled for three4c/herdr; install the fork on the remote host manually or set HERDR_REMOTE_BINARY to a matching fork binary",
+        ));
+    }
     if crate::build_info::is_preview() {
         let build_id = crate::build_info::build_id().ok_or_else(|| {
             io::Error::other("preview client has no build id; set HERDR_REMOTE_BINARY or install Herdr on the remote manually")
@@ -2886,6 +2893,7 @@ fn posix_remote_api_discovery_script(platform: &RemotePlatform, session: &str) -
     format!(
         r#"set -f
 candidates=$(
+command -v herdr-aira
 command -v herdr
 {discovery}
 )
@@ -3676,6 +3684,14 @@ fn sanitize_path_component(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fork_remote_install_never_fetches_upstream_releases() {
+        for target in ["linux-x86_64", "macos-aarch64", "windows-x86_64"] {
+            let error = remote_release_asset(target).err().expect("fork guard");
+            assert!(error.to_string().contains("disabled for three4c/herdr"));
+        }
+    }
 
     #[cfg(unix)]
     #[test]
@@ -4622,9 +4638,9 @@ mod tests {
 
     #[test]
     fn remote_install_stream_command_avoids_shell_c_wrapper() {
-        let command = remote_install_stream_command("/home/a b/.local/bin/herdr.tmp.123");
+        let command = remote_install_stream_command("/home/a b/.local/bin/herdr-aira.tmp.123");
 
-        assert_eq!(command, "tee '/home/a b/.local/bin/herdr.tmp.123'");
+        assert_eq!(command, "tee '/home/a b/.local/bin/herdr-aira.tmp.123'");
     }
 
     #[test]
@@ -5492,7 +5508,7 @@ function Get-Process {
             assert_eq!(
                 remote_api_bridge_command(&remote_herdr, session, false),
                 posix_remote_output_command(&format!(
-                    "exec \"$HOME/.local/bin/herdr\" --session {session} remote-api-bridge"
+                    "exec \"$HOME/.local/bin/herdr-aira\" --session {session} remote-api-bridge"
                 ))
             );
         }
@@ -5527,11 +5543,11 @@ function Get-Process {
             remote_herdr
                 .executable
                 .bridge_command(crate::session::DEFAULT_SESSION_NAME),
-            "printf '\n%s\n' 'herdr-remote-output-ready:1'\nexec \"$HOME/.local/bin/herdr\" remote-client-bridge"
+            "printf '\n%s\n' 'herdr-remote-output-ready:1'\nexec \"$HOME/.local/bin/herdr-aira\" remote-client-bridge"
         );
         assert_eq!(
             remote_herdr.executable.saved_bridge_command("agents"),
-            "exec \"$HOME/.local/bin/herdr\" --session agents remote-client-bridge </dev/null"
+            "exec \"$HOME/.local/bin/herdr-aira\" --session agents remote-client-bridge </dev/null"
         );
     }
 
@@ -5638,7 +5654,7 @@ function Get-Process {
             arch: "x86_64",
         });
 
-        assert!(script.contains("emit \"$home/.local/bin/herdr\""));
+        assert!(script.contains("emit \"$home/.local/bin/herdr-aira\""));
         assert!(!script.contains("mise/shims/herdr"));
         assert!(script.contains(&format!("version={}", shell_quote(&current_version()))));
         assert!(
@@ -5653,6 +5669,74 @@ function Get-Process {
         assert!(script.contains("emit \"/run/current-system/sw/bin/herdr\""));
         assert!(script.contains("emit \"/home/linuxbrew/.linuxbrew/bin/herdr\""));
         assert!(!script.contains("emit \"/opt/homebrew/bin/herdr\""));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remote_api_discovery_prefers_aira_and_keeps_compatible_upstream_candidates() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let directory = std::env::temp_dir().join(format!(
+            "herdr fork discovery-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&directory).unwrap();
+        let bin = directory.join("bin");
+        fs::create_dir(&bin).unwrap();
+        let upstream = bin.join("herdr");
+        let aira = bin.join("herdr-aira");
+        let write_binary = |path: &Path, compatible: bool| {
+            let script = if compatible {
+                "#!/bin/sh\nprintf 'herdr-api-bridge-v1\\n'\n"
+            } else {
+                "#!/bin/sh\nexit 2\n"
+            };
+            fs::write(path, script).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+        };
+        let script = posix_remote_api_discovery_script(
+            &RemotePlatform {
+                os: "linux",
+                arch: "x86_64",
+            },
+            "default",
+        );
+        let verify = |expected: &Path| {
+            let output = Command::new("/bin/sh")
+                .args(["-c", &script])
+                .env("PATH", &bin)
+                .env("HOME", &directory)
+                .env("USER", "aira-discovery-fixture")
+                .stdin(Stdio::null())
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(
+                String::from_utf8(output.stdout).unwrap().trim(),
+                expected.to_string_lossy()
+            );
+        };
+
+        write_binary(&upstream, true);
+        verify(&upstream);
+        write_binary(&aira, true);
+        verify(&aira);
+        write_binary(&aira, false);
+        verify(&upstream);
+        write_binary(&upstream, false);
+        let legacy = directory.join(".local/bin/herdr");
+        fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        write_binary(&legacy, true);
+        verify(&legacy);
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
@@ -5710,10 +5794,10 @@ function Get-Process {
     #[test]
     fn remote_shell_path_warning_accepts_managed_install() {
         assert!(remote_shell_resolves_managed_install(
-            "/home/can/.local/bin/herdr\n"
+            "/home/can/.local/bin/herdr-aira\n"
         ));
         assert!(remote_shell_resolves_managed_install(
-            "/Users/can/.local/bin/herdr\n"
+            "/Users/can/.local/bin/herdr-aira\n"
         ));
         assert!(!remote_shell_resolves_managed_install(
             "/usr/local/bin/herdr\n"

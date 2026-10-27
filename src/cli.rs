@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
@@ -51,7 +52,7 @@ pub(crate) const AGENT_HELP_FOOTER: &str = concat!(
     "  Debug or investigate a problem with Herdr:\n",
     "    https://herdr.dev/llms.txt\n",
     "  Control Herdr panes, agents, or workspaces:\n",
-    "    SKIP if a Herdr skill is already in your context. Otherwise run: herdr --skill",
+    "    SKIP if a Herdr skill is already in your context. Otherwise run: herdr-aira --skill",
 );
 
 pub(crate) fn parse_token_assignment(raw: &str) -> Result<(String, Option<String>), String> {
@@ -157,6 +158,14 @@ fn api_group(name: &str) -> Option<clap::Command> {
 }
 
 fn run_channel_command(args: &[String]) -> std::io::Result<i32> {
+    if crate::build_info::is_fork() {
+        if args.first().map(String::as_str) == Some("show") && args.len() == 1 {
+            println!("aira (three4c/herdr)");
+            return Ok(0);
+        }
+        eprintln!("This fork uses only three4c/herdr releases. Channel switching is disabled; run `herdr-aira update`.");
+        return Ok(1);
+    }
     match args.first().map(|arg| arg.as_str()) {
         Some("set") => channel_set(&args[1..]),
         Some("show") if args.len() == 1 => {

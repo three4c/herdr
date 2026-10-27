@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use super::*;
 
 pub(super) const MIN_TAB_WIDTH: u16 = 8;

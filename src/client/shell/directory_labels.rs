@@ -1,3 +1,4 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 use super::*;
 
 pub(super) fn pane_directory(pane: &crate::protocol::ClientShellPane) -> Option<&str> {

@@ -1,7 +1,8 @@
+// Aira fork: modified for personal tab-focused behavior and fork distribution.
 //! Self-update mechanism.
 //!
-//! Checks the hosted herdr.dev update manifest for newer versions.
-//! Manual `herdr update` downloads and installs the binary.
+//! Checks the selected distribution's update manifest for newer versions.
+//! Manual `herdr-aira update` downloads and installs the binary.
 //! Background checks only surface availability and release notes.
 //! Uses `curl` as a subprocess for HTTP — no additional Rust HTTP dependencies.
 //! JSON parsing uses serde_json (already in deps for persistence).
@@ -25,6 +26,7 @@ use serde::{Deserialize, Deserializer};
 const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.dev/latest.json";
 const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.dev/preview.json";
 const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/herdr.json";
+const FORK_UPDATE_COMMAND: &str = "herdr-aira update";
 const HERDR_UPDATE_COMMAND: &str = "herdr update";
 const HOMEBREW_UPDATE_COMMAND: &str = "brew update && brew upgrade herdr";
 const MISE_UPDATE_COMMAND: &str = "mise upgrade herdr";
@@ -106,6 +108,10 @@ enum UpdateChannel {
 
 impl UpdateChannel {
     fn configured() -> Self {
+        if crate::build_info::is_fork() {
+            // Existing stable/preview settings must never select an upstream binary.
+            return Self::Stable;
+        }
         match crate::config::Config::load().config.update.channel {
             crate::config::UpdateChannelConfig::Stable => Self::Stable,
             crate::config::UpdateChannelConfig::Preview => Self::Preview,
@@ -326,10 +332,16 @@ impl ReleaseInfo {
 }
 
 fn fetch_update_manifest() -> Result<UpdateManifest, String> {
+    if crate::build_info::is_fork() {
+        return Err("upstream update manifests are disabled for three4c/herdr".into());
+    }
     fetch_json_manifest(STABLE_UPDATE_MANIFEST_URL)
 }
 
 fn fetch_preview_manifest() -> Result<PreviewManifest, String> {
+    if crate::build_info::is_fork() {
+        return Err("preview updates are disabled for three4c/herdr".into());
+    }
     fetch_json_manifest(PREVIEW_UPDATE_MANIFEST_URL)
 }
 
@@ -573,6 +585,10 @@ fn release_info_from_manifests(
 
 /// Check the hosted update manifests for the latest release. Returns release info if newer.
 fn check_latest() -> Result<Option<ReleaseInfo>, String> {
+    if crate::build_info::is_fork() {
+        let manifest = fetch_json_manifest(crate::fork_distribution::MANIFEST_URL)?;
+        return release_info_from_fork_manifest(&manifest, crate::build_info::fork_release());
+    }
     let manifest = fetch_update_manifest()?;
     let preview = if UpdateChannel::configured() == UpdateChannel::Preview {
         Some(fetch_preview_manifest()?)
@@ -600,6 +616,36 @@ fn check_latest() -> Result<Option<ReleaseInfo>, String> {
     Ok(release)
 }
 
+fn release_info_from_fork_manifest(
+    manifest: &crate::fork_distribution::Manifest,
+    installed_release: u64,
+) -> Result<Option<ReleaseInfo>, String> {
+    manifest.validate()?;
+    if manifest.release <= installed_release {
+        return Ok(None);
+    }
+    let (os, arch) = platform_target();
+    let key = format!("{os}-{arch}");
+    let (url, checksum) = manifest.asset(&key)?;
+    let version = Version::parse(&manifest.base_version).ok_or("invalid fork base_version")?;
+    Ok(Some(ReleaseInfo {
+        version,
+        identity: manifest.version.clone(),
+        channel: UpdateChannel::Stable,
+        build_id: Some(manifest.release.to_string()),
+        commit: Some(manifest.commit.clone()),
+        #[cfg(not(windows))]
+        target_protocol: Some(manifest.protocol),
+        #[cfg(not(windows))]
+        target_endpoint_generation: Some(manifest.endpoint_generation),
+        download_url: url.to_owned(),
+        sha256: Some(checksum.to_owned()),
+        #[cfg(windows)]
+        package_format: "exe".into(),
+        notes_body: manifest.notes.clone(),
+    }))
+}
+
 fn parse_homebrew_formula_stable_version(input: &[u8]) -> Result<Version, String> {
     let formula: HomebrewFormula = serde_json::from_slice(input)
         .map_err(|e| format!("failed to parse Homebrew formula JSON: {e}"))?;
@@ -624,6 +670,9 @@ fn homebrew_update_from_formula_json(
 }
 
 fn check_homebrew_latest() -> Result<Option<Version>, String> {
+    if crate::build_info::is_fork() {
+        return Err("Homebrew updates are disabled for three4c/herdr".into());
+    }
     let current = Version::current();
 
     let output = crate::noninteractive_process::curl_command()
@@ -1008,7 +1057,7 @@ fn plan_running_server_updates(
         )
         .map_err(|err| {
             format!(
-                "failed to read status for herdr target {} at {}: {err}. stop it with `{}` and run `herdr update` again",
+                "failed to read status for herdr target {} at {}: {err}. stop it with `{}` and run `herdr-aira update` again",
                 target.label,
                 target.socket_path.display(),
                 target.stop_command
@@ -1017,7 +1066,7 @@ fn plan_running_server_updates(
             Some(server) => server,
             None if target.must_be_running => {
                 return Err(format!(
-                        "herdr target {} looked running, but its status API did not respond at {}. stop it with `{}` and run `herdr update` again",
+                        "herdr target {} looked running, but its status API did not respond at {}. stop it with `{}` and run `herdr-aira update` again",
                     target.label,
                     target.socket_path.display(),
                     target.stop_command
@@ -1025,7 +1074,7 @@ fn plan_running_server_updates(
             }
             None if client_protocol_server_is_running_at(&target.client_socket_path) => {
                 return Err(format!(
-                    "herdr target {} has a client socket, but its status API did not respond at {}. stop it with `{}` and run `herdr update` again",
+                    "herdr target {} has a client socket, but its status API did not respond at {}. stop it with `{}` and run `herdr-aira update` again",
                     target.label,
                     target.socket_path.display(),
                     target.stop_command
@@ -1043,7 +1092,7 @@ fn plan_running_server_updates(
 
     if plans.is_empty() && target_client_protocol_server_is_running()? {
         return Err(format!(
-            "a herdr server is listening, but its status API is unavailable; try `{}`, or stop the old server process manually, then run `herdr update` again",
+            "a herdr server is listening, but its status API is unavailable; try `{}`, or stop the old server process manually, then run `herdr-aira update` again",
             crate::session::local_stop_command()
         ));
     }
@@ -1084,9 +1133,10 @@ fn running_update_targets() -> Result<Vec<RunningUpdateTarget>, String> {
             name: None,
             label: socket_path.display().to_string(),
             stop_command: format!(
-                "{}={} herdr server stop",
+                "{}={} {} server stop",
                 crate::api::SOCKET_PATH_ENV_VAR,
-                socket_path.display()
+                socket_path.display(),
+                crate::build_info::executable_name()
             ),
             attach_command: None,
             client_socket_path: crate::server::socket_paths::client_socket_path_from_overrides(
@@ -1114,9 +1164,13 @@ fn running_update_targets() -> Result<Vec<RunningUpdateTarget>, String> {
                 Some(&session.name)
             }),
             attach_command: Some(if session.default {
-                "herdr".to_string()
+                crate::build_info::executable_name().to_string()
             } else {
-                format!("herdr session attach {}", session.name)
+                format!(
+                    "{} session attach {}",
+                    crate::build_info::executable_name(),
+                    session.name
+                )
             }),
             label: session.name.clone(),
             client_socket_path: crate::session::client_socket_path_for(if session.default {
@@ -1161,7 +1215,7 @@ pub(crate) fn parse_self_update_args(args: &[String]) -> Result<SelfUpdateOption
         match arg.as_str() {
             "--handoff" => options.live_handoff = true,
             "--help" | "-h" => {
-                return Err("usage: herdr update [--handoff]".to_string());
+                return Err("usage: herdr-aira update [--handoff]".to_string());
             }
             _ => return Err(format!("unknown update option: {arg}")),
         }
@@ -1176,7 +1230,7 @@ fn prompt_to_stop_old_servers_before_update(
 ) -> Result<bool, String> {
     if !io::stdin().is_terminal() {
         return Err(
-            "one or more Herdr sessions must stop for this update. Stop running Herdr sessions when ready, then run `herdr update` again from an interactive terminal."
+            "one or more Herdr sessions must stop for this update. Stop running Herdr sessions when ready, then run `herdr-aira update` again from an interactive terminal."
                 .to_string(),
         );
     }
@@ -1824,7 +1878,7 @@ fn print_running_session_update_outcomes(
     release: &ReleaseInfo,
 ) {
     if outcomes.is_empty() {
-        eprintln!("run herdr again.");
+        eprintln!("run {} again.", crate::build_info::executable_name());
         return;
     }
 
@@ -1929,6 +1983,9 @@ fn print_running_session_update_outcomes(
 // ---------------------------------------------------------------------------
 
 pub(crate) fn update_install_command() -> &'static str {
+    if crate::build_info::is_fork() {
+        return FORK_UPDATE_COMMAND;
+    }
     if is_homebrew_managed_install() {
         HOMEBREW_UPDATE_COMMAND
     } else if is_mise_managed_install() {
@@ -1960,6 +2017,9 @@ pub(crate) fn update_install_instruction(install_command: &str) -> String {
 }
 
 fn is_homebrew_managed_install() -> bool {
+    if crate::build_info::is_fork() {
+        return false;
+    }
     let Ok(current_exe) = env::current_exe() else {
         return false;
     };
@@ -1968,6 +2028,9 @@ fn is_homebrew_managed_install() -> bool {
 }
 
 fn is_nix_managed_install() -> bool {
+    if crate::build_info::is_fork() {
+        return false;
+    }
     let Ok(current_exe) = env::current_exe() else {
         return false;
     };
@@ -1976,6 +2039,9 @@ fn is_nix_managed_install() -> bool {
 }
 
 fn is_mise_managed_install() -> bool {
+    if crate::build_info::is_fork() {
+        return false;
+    }
     let Ok(current_exe) = env::current_exe() else {
         return false;
     };
@@ -2179,8 +2245,20 @@ fn preserve_preview_channel_for_install(
     Ok(())
 }
 
-/// Manual self-update command (`herdr update`).
+/// Manual self-update command (`herdr-aira update`).
 pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
+    if crate::build_info::is_fork() {
+        let (os, arch) = platform_target();
+        if !crate::fork_distribution::TARGETS.contains(&format!("{os}-{arch}").as_str()) {
+            return Err(
+                "three4c/herdr releases support only macOS and Linux on x86_64/aarch64".into(),
+            );
+        }
+        let executable = env::current_exe().map_err(|error| error.to_string())?;
+        if is_package_manager_managed_exe_path(&executable) {
+            return Err("Install three4c/herdr in a standalone directory with the fork installer before using self-update".into());
+        }
+    }
     let channel = UpdateChannel::configured();
 
     if is_homebrew_managed_install() {
@@ -2217,10 +2295,16 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     }
 
     if running_inside_herdr() {
-        return Err("run `herdr update` outside herdr after detaching from the session".into());
+        return Err(
+            "run `herdr-aira update` outside herdr after detaching from the session".into(),
+        );
     }
 
-    eprintln!("checking {} channel for updates...", channel.as_str());
+    if crate::build_info::is_fork() {
+        eprintln!("checking aira releases for updates...");
+    } else {
+        eprintln!("checking {} channel for updates...", channel.as_str());
+    }
 
     let current = Version::current();
 
@@ -2233,7 +2317,7 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     };
 
     if let Some(commit) = &release.commit {
-        tracing::info!(commit = %commit, build_id = ?release.build_id, "selected preview update build");
+        tracing::info!(commit = %commit, build_id = ?release.build_id, "selected update build");
     }
     if let Err(e) = crate::release_notes::save_pending(release.label(), &release.notes_body) {
         tracing::warn!("failed to save pending release notes: {e}");
@@ -2283,7 +2367,9 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
             && !prompt_to_complete_plain_update(&server_update_decisions, &release)?
         {
             eprintln!("Herdr was not updated.");
-            eprintln!("Stop running Herdr sessions when ready, then run `herdr update` again.");
+            eprintln!(
+                "Stop running Herdr sessions when ready, then run `herdr-aira update` again."
+            );
             return Ok(current);
         }
         install_downloaded_update(downloaded_update)?;
@@ -2340,7 +2426,7 @@ fn saved_machine_update_notice_lines(
     ];
     lines.extend(labels.into_iter().map(|label| format!("  {label}")));
     lines.push(
-        "run `herdr update` on each one. it will tell you what to restart there.".to_string(),
+        "run `herdr-aira update` on each one. it will tell you what to restart there.".to_string(),
     );
     lines
 }
@@ -2582,6 +2668,50 @@ fn platform_target() -> (&'static str, &'static str) {
 #[cfg(test)]
 mod channel_tests {
     use super::*;
+
+    #[test]
+    fn fork_releases_compare_sequence_even_when_base_version_changes() {
+        let mut manifest = crate::fork_distribution::test_manifest(12);
+        let (os, arch) = platform_target();
+        if !crate::fork_distribution::TARGETS.contains(&format!("{os}-{arch}").as_str()) {
+            let error = release_info_from_fork_manifest(&manifest, 11)
+                .expect_err("unsupported fork platform");
+            assert!(error.contains("unsupported fork target"));
+            return;
+        }
+        let release = release_info_from_fork_manifest(&manifest, 11)
+            .unwrap()
+            .unwrap();
+        assert_eq!(release.label(), "0.9.5-aira.12");
+        assert!(release
+            .download_url
+            .starts_with("https://github.com/three4c/herdr/"));
+        assert!(release.sha256.is_some());
+        assert!(release_info_from_fork_manifest(&manifest, 12)
+            .unwrap()
+            .is_none());
+        assert!(release_info_from_fork_manifest(&manifest, 13)
+            .unwrap()
+            .is_none());
+        manifest.base_version = "0.9.4".into();
+        manifest.version = "0.9.4-aira.12".into();
+        assert!(release_info_from_fork_manifest(&manifest, 11)
+            .unwrap()
+            .is_some());
+        assert!(release_info_from_fork_manifest(&manifest, 0)
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn fork_disables_upstream_fetches_before_network_access() {
+        assert_eq!(crate::build_info::channel(), "aira");
+        assert!(!crate::build_info::is_preview());
+        assert!(fetch_update_manifest().err().unwrap().contains("disabled"));
+        assert!(fetch_preview_manifest().err().unwrap().contains("disabled"));
+        assert!(check_homebrew_latest().unwrap_err().contains("disabled"));
+        assert_eq!(update_install_command(), "herdr-aira update");
+    }
 
     fn manifests() -> (UpdateManifest, PreviewManifest) {
         let (os, arch) = platform_target();
@@ -2829,7 +2959,7 @@ mod tests {
                 "your SSH machines run their own herdr and may be older:",
                 "  rohan",
                 "  workbox",
-                "run `herdr update` on each one. it will tell you what to restart there.",
+                "run `herdr-aira update` on each one. it will tell you what to restart there.",
             ]
         );
     }
@@ -3546,7 +3676,7 @@ mod tests {
             "unexpected error: {err}"
         );
         assert!(
-            err.contains("herdr session stop work"),
+            err.contains("herdr-aira session stop work"),
             "unexpected error: {err}"
         );
     }

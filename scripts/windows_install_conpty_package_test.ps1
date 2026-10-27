@@ -1,3 +1,4 @@
+# Aira fork: cover rejection of implicit upstream channels for fork binaries.
 param(
     [Parameter(Mandatory = $true)]
     [string]$ArchivePath
@@ -306,10 +307,38 @@ try {
     try {
         $env:HERDR_CONFIG_PATH = Join-Path $root "preview-config.toml"
         "[update]`nchannel = `"preview`"" | Out-File -LiteralPath $env:HERDR_CONFIG_PATH -Encoding ascii
-        & $installerPath `
-            -ManifestUrl "http://127.0.0.1:$port/candidate.json" `
-            -InstallDir $installDir `
-            -ExpectedBuildId "installer-test"
+        $implicitInstall = @{
+            ManifestUrl = "http://127.0.0.1:$port/candidate.json"
+            InstallDir = $installDir
+            ExpectedBuildId = "installer-test"
+        }
+        $installedVersion = [string](& (Join-Path $installDir "herdr.exe") --version)
+        if ($LASTEXITCODE -ne 0) {
+            throw "could not read the installed fixture binary identity"
+        }
+        if ($installedVersion.Trim() -match '-aira\.[0-9]+$') {
+            # The fork deliberately cannot select upstream stable/preview channels.
+            $priorTarget = [string](Get-Item -LiteralPath $installDir -Force).Target
+            $forkChannelRejected = $false
+            try {
+                & $installerPath @implicitInstall
+            } catch {
+                if ($_.Exception.Message -notlike "Could not determine the existing Herdr update channel.*") {
+                    throw
+                }
+                $forkChannelRejected = $true
+            }
+            if (-not $forkChannelRejected) {
+                throw "upstream installer implicitly accepted the Aira update channel"
+            }
+            if ([string](Get-Item -LiteralPath $installDir -Force).Target -ne $priorTarget) {
+                throw "rejected fork channel changed the active installation"
+            }
+            # Continue the same archive/repair tests using an explicit fixture channel.
+            & $installerPath @implicitInstall -Channel preview
+        } else {
+            & $installerPath @implicitInstall
+        }
     } finally {
         if ($null -eq $oldConfigPath) {
             Remove-Item Env:HERDR_CONFIG_PATH -ErrorAction SilentlyContinue

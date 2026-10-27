@@ -1,2 +1,6 @@
 * text=auto eol=lf
 packaging/windows/licenses/* binary
+# Aira fork: distinguish generated attribution data in code review.
+distribution/fork/THIRD-PARTY-NOTICES.txt linguist-generated=true
+distribution/fork/license-inventory.json linguist-generated=true
+distribution/fork/licenses/** linguist-vendored=true
