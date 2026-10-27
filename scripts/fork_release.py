@@ -31,7 +31,7 @@ def require_newer(tag: str, published_tags: list[str]) -> int:
 
 
 def source_number(path: Path, constant: str) -> int:
-    match = re.search(rf"pub const {constant}: u32 = ([0-9]+);", path.read_text())
+    match = re.search(rf"pub const {constant}: u32 = ([0-9]+);", path.read_text(encoding="utf-8"))
     if not match:
         raise ValueError(f"cannot read {constant} from {path}")
     return int(match[1])
@@ -39,7 +39,7 @@ def source_number(path: Path, constant: str) -> int:
 
 def prepare(tag: str, assets: Path, output: Path, root: Path = Path(".")) -> dict:
     number = release_number(tag)
-    base = tomllib.loads((root / "Cargo.toml").read_text())["package"]["version"]
+    base = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))["package"]["version"]
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", base):
         raise ValueError("Cargo.toml must contain a stable base version")
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
@@ -64,7 +64,7 @@ def prepare(tag: str, assets: Path, output: Path, root: Path = Path(".")) -> dic
         "assets": {target: f"https://github.com/{REPOSITORY}/releases/download/{tag}/herdr-{target}" for target in TARGETS},
         "sha256": checksums,
     }
-    (output / "fork-latest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (output / "fork-latest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
     shutil.copyfile(root / "distribution/fork/install.sh", output / "install.sh")
     names = [f"herdr-{target}" for target in TARGETS] + ["fork-latest.json", "install.sh"]
     for source, name in (("LICENSE", "LICENSE"), ("distribution/fork/FORK-NOTICE.txt", "FORK-NOTICE.txt"), ("distribution/fork/THIRD-PARTY-NOTICES.txt", "THIRD-PARTY-NOTICES.txt")):
@@ -72,7 +72,7 @@ def prepare(tag: str, assets: Path, output: Path, root: Path = Path(".")) -> dic
         names.append(name)
     (output / "SHA256SUMS").write_text("".join(
         f"{hashlib.sha256((output / name).read_bytes()).hexdigest()}  {name}\n" for name in names
-    ))
+    ), encoding="utf-8", newline="\n")
     return manifest
 
 
@@ -88,7 +88,7 @@ def main() -> None:
     pack.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "check":
-        print(require_newer(args.tag, json.loads(args.published.read_text())))
+        print(require_newer(args.tag, json.loads(args.published.read_text(encoding="utf-8"))))
     else:
         prepare(args.tag, args.assets, args.output)
 

@@ -41,19 +41,19 @@ def inputs(root: Path) -> dict[str, str]:
 def package_texts(package: dict, root: Path) -> list[tuple[str, str]]:
     directory = Path(package["manifest_path"]).parent
     if package["name"] in ("herdr", "ghostty-vt") and package["source"] is None:
-        return [("LICENSE", (root / "LICENSE").read_text())]
+        return [("LICENSE", (root / "LICENSE").read_text(encoding="utf-8"))]
     files = [path for path in directory.rglob("*") if path.is_file() and (
         NOTICE_NAME.match(path.name) or any(part.lower() in ("licenses", "licences") for part in path.relative_to(directory).parts[:-1])
     )]
-    texts = [(path.relative_to(directory).as_posix(), path.read_text()) for path in sorted(files)]
+    texts = [(path.relative_to(directory).as_posix(), path.read_text(encoding="utf-8")) for path in sorted(files)]
     if not texts:
-        vcs = json.loads((directory / ".cargo_vcs_info.json").read_text())
+        vcs = json.loads((directory / ".cargo_vcs_info.json").read_text(encoding="utf-8"))
         repository = package["repository"].rstrip("/").split("/")[-1]
         name = f"{repository}-{vcs['git']['sha1'][:6]}.txt"
         fallback = root / DIRECTORY / "licenses" / name
         if not fallback.is_file():
             raise ValueError(f"missing preserved upstream license for {package['name']} {package['version']}: {name}")
-        texts = [(name, fallback.read_text())]
+        texts = [(name, fallback.read_text(encoding="utf-8"))]
     return texts
 
 
@@ -88,13 +88,13 @@ def generate(root: Path = ROOT) -> None:
             sections.setdefault(notice_text(text), []).append(f"{label}: {filename}")
 
     for filename in ("vendor/libghostty-vt/LICENSE", "vendor/portable-pty/LICENSE.md"):
-        sections.setdefault(notice_text((root / filename).read_text()), []).append(filename)
-    preserved = json.loads((root / DIRECTORY / "licenses/sources.json").read_text())
+        sections.setdefault(notice_text((root / filename).read_text(encoding="utf-8")), []).append(filename)
+    preserved = json.loads((root / DIRECTORY / "licenses/sources.json").read_text(encoding="utf-8"))
     for entry in preserved:
         path = root / DIRECTORY / "licenses" / entry["file"]
         if sha256(path) != entry["sha256"]:
             raise ValueError(f"license source digest mismatch: {path}")
-        sections.setdefault(notice_text(path.read_text()), []).append(entry["source"])
+        sections.setdefault(notice_text(path.read_text(encoding="utf-8")), []).append(entry["source"])
 
     header = (
         "Aira / Herdr third-party notices\n\n"
@@ -106,14 +106,14 @@ def generate(root: Path = ROOT) -> None:
         "Apache-2.0 or the supplied permissive license; required Unicode notices are retained.\n\n"
     )
     content = header + "\n\n".join("=" * 72 + "\n" + "\n".join(labels) + "\n\n" + text for text, labels in sections.items()) + "\n"
-    (root / TEXT).write_text(content)
+    (root / TEXT).write_text(content, encoding="utf-8", newline="\n")
     inventory = {"inputs": inputs(root), "notice_sha256": sha256(root / TEXT), "components": components}
-    (root / INVENTORY).write_text(json.dumps(inventory, indent=2) + "\n")
+    (root / INVENTORY).write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"Preserved notices for {len(components)} Cargo packages and native dependencies")
 
 
 def check(root: Path = ROOT) -> None:
-    inventory = json.loads((root / INVENTORY).read_text())
+    inventory = json.loads((root / INVENTORY).read_text(encoding="utf-8"))
     if inventory["inputs"] != inputs(root) or inventory["notice_sha256"] != sha256(root / TEXT):
         raise ValueError("Aira license inventory is stale; review dependency licenses and run `just fork-licenses-generate`")
     if not inventory["components"]:

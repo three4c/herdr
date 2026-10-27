@@ -67,7 +67,7 @@ fi
             **self.manifest_changes,
         }
         path = self.root / "latest.json"
-        path.write_text(json.dumps(manifest, indent=2) + "\n")
+        path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
         return path
 
     def _run_installer(self, *args, **kwargs):
@@ -87,7 +87,7 @@ fi
                 marker.unlink(missing_ok=True)
                 result = self._run_installer(self.expected_sha256, extra_env={"FAKE_SYSTEM": system, "FAKE_ARCH": arch})
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(marker.read_text().splitlines(), [MANIFEST_URL, f"https://github.com/three4c/herdr/releases/download/aira-v12/herdr-{target}"])
+                self.assertEqual(marker.read_text(encoding="utf-8").splitlines(), [MANIFEST_URL, f"https://github.com/three4c/herdr/releases/download/aira-v12/herdr-{target}"])
                 self.assertTrue(os.access(self.install_dir / "herdr", os.X_OK))
 
     def test_unsupported_platform_never_downloads(self):
@@ -127,10 +127,18 @@ fi
                 self.manifest_changes = changes
                 result = self._run_installer(self.expected_sha256)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertEqual((self.root / "curl-called").read_text().splitlines(), [MANIFEST_URL])
+                self.assertEqual((self.root / "curl-called").read_text(encoding="utf-8").splitlines(), [MANIFEST_URL])
 
 
 class ForkReleaseTests(unittest.TestCase):
+    def test_protocol_source_is_read_as_utf8_on_every_host(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "wire.rs"
+            source.write_bytes("// \u64cd\u4f5c\npub const PROTOCOL_VERSION: u32 = 22;\n".encode("utf-8"))
+            # Model Windows' non-UTF-8 default even when this test runs on Unix.
+            with mock.patch("io.text_encoding", side_effect=lambda encoding, stacklevel=2: encoding or "cp1252"):
+                self.assertEqual(fork_release.source_number(source, "PROTOCOL_VERSION"), 22)
+
     def test_license_inventory_matches_sources_and_rejects_stale_inputs(self):
         fork_licenses.check(ROOT)
         with mock.patch.object(fork_licenses, "inputs", return_value={}), self.assertRaisesRegex(ValueError, "stale"):
@@ -157,7 +165,7 @@ class ForkReleaseTests(unittest.TestCase):
             for target in fork_release.TARGETS:
                 self.assertEqual(manifest["sha256"][target], hashlib.sha256((output / f"herdr-{target}").read_bytes()).hexdigest())
                 self.assertEqual(manifest["assets"][target], f"https://github.com/three4c/herdr/releases/download/aira-v12/herdr-{target}")
-            for line in (output / "SHA256SUMS").read_text().splitlines():
+            for line in (output / "SHA256SUMS").read_text(encoding="utf-8").splitlines():
                 digest, name = line.split("  ")
                 self.assertEqual(digest, hashlib.sha256((output / name).read_bytes()).hexdigest())
             self.assertEqual((output / "install.sh").read_bytes(), INSTALLER.read_bytes())

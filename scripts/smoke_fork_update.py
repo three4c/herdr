@@ -31,9 +31,9 @@ def smoke(old: Path, new: Path) -> None:
     old_identity, _, old_number = identity(old)
     new_identity, new_base, new_number = identity(new)
     licenses = subprocess.check_output([str(new), "--licenses"], text=True)
-    assert licenses.startswith((repo_root / "LICENSE").read_text())
-    assert (repo_root / "distribution/fork/FORK-NOTICE.txt").read_text() in licenses
-    assert (repo_root / "distribution/fork/THIRD-PARTY-NOTICES.txt").read_text() in licenses
+    assert licenses.startswith((repo_root / "LICENSE").read_text(encoding="utf-8"))
+    assert (repo_root / "distribution/fork/FORK-NOTICE.txt").read_text(encoding="utf-8") in licenses
+    assert (repo_root / "distribution/fork/THIRD-PARTY-NOTICES.txt").read_text(encoding="utf-8") in licenses
     assert 0 < old_number < new_number
     with tempfile.TemporaryDirectory(prefix="herdr-aira-update-") as tmp:
         root = Path(tmp)
@@ -57,13 +57,13 @@ else:
         sys.exit(22)
     if url != "https://github.com/three4c/herdr/releases/latest/download/fork-latest.json":
         sys.exit(99)
-    sys.stdout.write(Path(os.environ["AIRA_SMOKE_MANIFEST"]).read_text())
-''')
+    sys.stdout.write(Path(os.environ["AIRA_SMOKE_MANIFEST"]).read_text(encoding="utf-8"))
+''', encoding="utf-8", newline="\n")
         curl.chmod(0o755)
         binary = root / "herdr"
         shutil.copy2(old, binary)
         config = root / "config.toml"
-        config.write_text('[update]\nchannel = "preview"\n')
+        config.write_text('[update]\nchannel = "preview"\n', encoding="utf-8", newline="\n")
         original_config = config.read_bytes()
         requests = root / "requests"
         manifest_path = root / "manifest.json"
@@ -102,17 +102,17 @@ else:
         assert "aira" in run("channel", "show").stdout
         assert not requests.exists()
 
-        manifest_path.write_text(json.dumps(manifest, indent=2))
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="\n")
         installer_env = {**env, "HERDR_INSTALL_DIR": str(root / "install")}
         installed = subprocess.run(["/bin/sh", str(repo_root / "distribution/fork/install.sh")], env=installer_env, capture_output=True, text=True, timeout=30)
         assert installed.returncode == 0, installed.stdout + installed.stderr
         assert identity(root / "install/herdr")[0] == new_identity
 
         bad = {**manifest, "sha256": {target: "0" * 64 for target in TARGETS}}
-        manifest_path.write_text(json.dumps(bad))
+        manifest_path.write_text(json.dumps(bad), encoding="utf-8", newline="\n")
         run("update", succeeds=False)
         assert identity(binary)[0] == old_identity
-        manifest_path.write_text(json.dumps(manifest))
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8", newline="\n")
         for stage in ("manifest", "1"):
             env["AIRA_SMOKE_FAIL"] = stage
             run("update", succeeds=False)
@@ -120,26 +120,26 @@ else:
         env.pop("AIRA_SMOKE_FAIL")
 
         bad = {**manifest, "assets": {target: "https://herdr.dev/latest.json" for target in TARGETS}}
-        manifest_path.write_text(json.dumps(bad))
-        requests.write_text("")
+        manifest_path.write_text(json.dumps(bad), encoding="utf-8", newline="\n")
+        requests.write_text("", encoding="utf-8", newline="\n")
         run("update", succeeds=False)
-        assert requests.read_text().splitlines() == [MANIFEST_URL]
+        assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]
         assert identity(binary)[0] == old_identity
 
-        manifest_path.write_text(json.dumps(manifest))
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8", newline="\n")
         run("update")
         assert identity(binary)[0] == new_identity
         assert hashlib.sha256(binary.read_bytes()).hexdigest() == digest
-        requests.write_text("")
+        requests.write_text("", encoding="utf-8", newline="\n")
         run("update")
-        assert requests.read_text().splitlines() == [MANIFEST_URL]
+        assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]
         manifest["release"] = old_number
         manifest["version"] = f"{new_base}-aira.{old_number}"
         manifest["assets"] = {target: f"https://github.com/three4c/herdr/releases/download/aira-v{old_number}/herdr-{target}" for target in TARGETS}
-        manifest_path.write_text(json.dumps(manifest))
-        requests.write_text("")
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8", newline="\n")
+        requests.write_text("", encoding="utf-8", newline="\n")
         run("update")
-        assert requests.read_text().splitlines() == [MANIFEST_URL]
+        assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]
         assert identity(binary)[0] == new_identity
         assert not list(root.glob(".herdr-update-*.tmp"))
         print(f"PASS: installer and {old_identity} -> {new_identity}; repeated update and downgrade ignored; checksum, network, upstream URL and channel guards verified; no servers started")

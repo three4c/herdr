@@ -26,7 +26,7 @@
     "distribution/fork/licenses/wuffs-LICENSE.txt": "f8ac2c75e7f629a87565c80d61ff9fe5aa15cdea0bda997d52a4dc13fdbd19cb",
     "distribution/fork/licenses/zig-0.16.txt": "5c537d6853e005298a285d508cff9ac7192cea23576c840d485b2b586a7ff177",
     "rust-toolchain.toml": "0d9298c075817aba62477d23dcda3534cd836b5d5cf1960bd2de54df675ceffd",
-    "scripts/fork_licenses.py": "122c1ce87d96d10dac141c3595a47c7088a78b21173494c49ab39534ffbbb7c3",
+    "scripts/fork_licenses.py": "6252a22d2b6a5120739aa5cfb86c3f0454e7c98d48f6d241d1af9500ad2b862d",
     "vendor/libghostty-vt.vendor.json": "16f64038ab246d5d842b814f19fdab17c46176364b1ab3e79c30768c7d857fb9",
     "vendor/libghostty-vt/LICENSE": "386211873e5b7a02f663ae4d7adf96285999f91608f8f9f31fecfd0f4095e6f1",
     "vendor/libghostty-vt/build.zig.zon": "19f4f4c9116f2b2e26da226c921d0fc5f0fde4fd8d06d5030174ad95026a7aba",
