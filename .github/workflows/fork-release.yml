@@ -53,7 +53,8 @@ jobs:
           set -euo pipefail
           git merge-base --is-ancestor HEAD origin/master
           test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
-          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[][] | select(.draft == false) | .tag_name]' > "$RUNNER_TEMP/published.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+            jq '[.[][] | select(.draft == false) | .tag_name]' > "$RUNNER_TEMP/published.json"
           number="$(python3 scripts/fork_release.py check --tag "$GITHUB_REF_NAME" --published "$RUNNER_TEMP/published.json")"
           echo "number=$number" >> "$GITHUB_OUTPUT"
       - name: Install Rust
@@ -179,7 +180,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[][] | select(.draft == false) | .tag_name]' > "$RUNNER_TEMP/published.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+            jq '[.[][] | select(.draft == false) | .tag_name]' > "$RUNNER_TEMP/published.json"
           python3 scripts/fork_release.py check --tag "$GITHUB_REF_NAME" --published "$RUNNER_TEMP/published.json"
           # A failed upload may leave a draft. Published releases are never overwritten.
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft > "$RUNNER_TEMP/existing.json" 2>/dev/null; then
