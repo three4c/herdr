@@ -45,6 +45,8 @@ impl Manifest {
         if crate::update::Version::parse(&self.base_version).is_none()
             || self.version != format!("{}-aira.{}", self.base_version, self.release)
             || self.notes.trim().is_empty()
+            || self.protocol == 0
+            || self.endpoint_generation == 0
             || self.commit.len() != 40
             || !self.commit.bytes().all(|byte| byte.is_ascii_hexdigit())
         {
@@ -123,6 +125,12 @@ mod tests {
         assert!(test_manifest(0).validate().is_err());
         let mut manifest = test_manifest(2);
         manifest.distribution = "herdrdev/herdr".into();
+        assert!(manifest.validate().is_err());
+        let mut manifest = test_manifest(2);
+        manifest.protocol = 0;
+        assert!(manifest.validate().is_err());
+        let mut manifest = test_manifest(2);
+        manifest.endpoint_generation = 0;
         assert!(manifest.validate().is_err());
     }
 }
