@@ -2,7 +2,7 @@
 # Aira fork: derived from the Herdr installer with fork-specific downloads.
 set -eu
 
-BIN="herdr"
+BIN="herdr-aira"
 MANIFEST_URL="https://github.com/three4c/herdr/releases/latest/download/fork-latest.json"
 INSTALL_DIR="${HERDR_INSTALL_DIR:-$HOME/.local/bin}"
 
@@ -34,7 +34,7 @@ main() {
     need curl
     need awk
 
-    # use the same manifest as `herdr update` so installs and updates agree
+    # use the same manifest as `herdr-aira update` so installs and updates agree
     # on the public latest release.
     TARGET="${os}-${arch}"
     log "fetching latest release manifest..."
@@ -151,7 +151,7 @@ main() {
     fi
     if [ "$RESOLVED" = "${INSTALL_DIR}/${BIN}" ]; then
         echo ""
-        log "ready. run 'herdr' to get started."
+        log "ready. run 'herdr-aira' to get started."
     fi
 
     echo ""

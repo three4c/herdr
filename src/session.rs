@@ -1,3 +1,4 @@
+// Aira fork: use the distinct command in guidance while sharing session storage.
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -104,8 +105,11 @@ pub fn active_name() -> Option<String> {
 
 pub fn local_attach_command() -> String {
     match active_name() {
-        Some(name) => format!("herdr session attach {name}"),
-        None => "herdr".to_string(),
+        Some(name) => format!(
+            "{} session attach {name}",
+            crate::build_info::executable_name()
+        ),
+        None => crate::build_info::executable_name().to_string(),
     }
 }
 
@@ -115,8 +119,11 @@ pub fn local_stop_command() -> String {
 
 pub fn stop_command_for(name: Option<&str>) -> String {
     match name {
-        Some(name) => format!("herdr session stop {name}"),
-        None => "herdr server stop".to_string(),
+        Some(name) => format!(
+            "{} session stop {name}",
+            crate::build_info::executable_name()
+        ),
+        None => format!("{} server stop", crate::build_info::executable_name()),
     }
 }
 
@@ -135,9 +142,10 @@ pub fn active_restart_after_update_guidance() -> String {
         if let Ok(socket_path) = std::env::var(crate::api::SOCKET_PATH_ENV_VAR) {
             return restart_after_update_guidance(
                 &format!(
-                    "{}={} herdr server stop",
+                    "{}={} {} server stop",
                     crate::api::SOCKET_PATH_ENV_VAR,
-                    socket_path
+                    socket_path,
+                    crate::build_info::executable_name()
                 ),
                 None,
             );
@@ -938,7 +946,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::remove_var(SESSION_ENV_VAR);
 
-        assert_eq!(local_attach_command(), "herdr");
+        assert_eq!(local_attach_command(), "herdr-aira");
     }
 
     #[test]
@@ -946,7 +954,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::set_var(SESSION_ENV_VAR, "work");
 
-        assert_eq!(local_attach_command(), "herdr session attach work");
+        assert_eq!(local_attach_command(), "herdr-aira session attach work");
 
         std::env::remove_var(SESSION_ENV_VAR);
     }
@@ -956,7 +964,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::remove_var(SESSION_ENV_VAR);
 
-        assert_eq!(local_stop_command(), "herdr server stop");
+        assert_eq!(local_stop_command(), "herdr-aira server stop");
 
         std::env::remove_var(SESSION_ENV_VAR);
     }
@@ -966,7 +974,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::set_var(SESSION_ENV_VAR, "work");
 
-        assert_eq!(local_stop_command(), "herdr session stop work");
+        assert_eq!(local_stop_command(), "herdr-aira session stop work");
 
         std::env::remove_var(SESSION_ENV_VAR);
     }
@@ -991,7 +999,7 @@ mod tests {
 
         assert_eq!(
             active_restart_after_update_guidance(),
-            "Stop the old server to use the new version.\nStopping exits pane processes.\nRun `HERDR_SOCKET_PATH=/tmp/custom-herdr.sock herdr server stop`, then restart Herdr with the same socket override."
+            "Stop the old server to use the new version.\nStopping exits pane processes.\nRun `HERDR_SOCKET_PATH=/tmp/custom-herdr.sock herdr-aira server stop`, then restart Herdr with the same socket override."
         );
 
         std::env::remove_var(crate::api::SOCKET_PATH_ENV_VAR);

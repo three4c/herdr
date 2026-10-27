@@ -21,6 +21,8 @@ MANIFEST_URL = "https://github.com/three4c/herdr/releases/latest/download/fork-l
 class ForkInstallerTests(upstream.UnixInstallerTests):
     """Exercise the fork installer using temporary files and a network substitute."""
 
+    binary_name = "herdr-aira"
+
     def setUp(self):
         super().setUp()
         self.manifest_changes = {}
@@ -88,7 +90,20 @@ fi
                 result = self._run_installer(self.expected_sha256, extra_env={"FAKE_SYSTEM": system, "FAKE_ARCH": arch})
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(marker.read_text(encoding="utf-8").splitlines(), [MANIFEST_URL, f"https://github.com/three4c/herdr/releases/download/aira-v12/herdr-{target}"])
-                self.assertTrue(os.access(self.install_dir / "herdr", os.X_OK))
+                self.assertTrue(os.access(self.install_dir / self.binary_name, os.X_OK))
+
+    def test_install_and_reinstall_preserve_upstream_executable(self):
+        self.install_dir.mkdir()
+        upstream_binary = self.install_dir / "herdr"
+        upstream_binary.write_bytes(b"original-upstream-binary")
+        for attempt in range(2):
+            with self.subTest(attempt=attempt):
+                (self.bin_dir / "sha256sum").unlink(missing_ok=True)
+                result = self._run_installer(self.expected_sha256)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(upstream_binary.read_bytes(), b"original-upstream-binary")
+                self.assertEqual((self.install_dir / self.binary_name).read_bytes(), self.payload.read_bytes())
+                self.assertFalse((self.install_dir / self.binary_name).is_symlink())
 
     def test_unsupported_platform_never_downloads(self):
         for extra in ({"FAKE_SYSTEM": "FreeBSD"}, {"FAKE_SYSTEM": "Windows_NT"}, {"FAKE_ARCH": "i686"}):
@@ -101,7 +116,7 @@ fi
 
     def test_network_errors_preserve_existing_binary(self):
         self.install_dir.mkdir()
-        binary = self.install_dir / "herdr"
+        binary = self.install_dir / self.binary_name
         binary.write_bytes(b"old-aira")
         for stage in ("manifest", "asset"):
             with self.subTest(stage=stage):

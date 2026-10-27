@@ -1,9 +1,10 @@
 # Aira distribution for three4c/herdr
 
-Aira is the personal fork of Herdr in `three4c/herdr`. The repository and
-executable remain named `herdr`. Upstream release workflows, manifests, package
-versions, settings, saved sessions, and public protocols are unchanged by this
-distribution setup.
+Aira is the personal fork of Herdr in `three4c/herdr`. The installed command is
+`herdr-aira`, alongside upstream `herdr`. The repository, Cargo package, build
+output, and Release asset names retain `herdr`. Upstream release workflows,
+manifests, package versions, settings, saved sessions, and public protocols are
+unchanged by this distribution setup.
 
 This setup makes installation and updates convenient across the owner's PCs.
 The public GitHub Releases are a download host for that personal workflow;
@@ -24,42 +25,44 @@ curl -fsSL https://github.com/three4c/herdr/releases/latest/download/install.sh 
 Then run:
 
 ```sh
-herdr --version
-herdr
+herdr-aira --version
+herdr-aira
 ```
 
 The installer selects macOS or Linux and x86_64 or aarch64 automatically. Linux
 binaries use musl. Android/Termux, Windows, and other architectures are rejected.
-The destination is `~/.local/bin/herdr`; Rust and build tools are unnecessary.
+The destination is `~/.local/bin/herdr-aira`; Rust and build tools are unnecessary.
 `curl`, `awk`, ordinary POSIX utilities, and one of `sha256sum`, `shasum`, or
 `openssl` are required. macOS includes `shasum`.
 
 Add `export PATH="$HOME/.local/bin:$PATH"` to your shell startup file if this
 directory is not already in PATH. The command above activates it for the current
 shell; the installer does not edit shell configuration. It warns when an existing
-Herdr elsewhere in PATH would shadow the fork. To choose another destination:
+`herdr-aira` elsewhere in PATH would shadow the fork. To choose another destination:
 
 ```sh
 curl -fsSL https://github.com/three4c/herdr/releases/latest/download/install.sh | HERDR_INSTALL_DIR="$HOME/bin" sh
 ```
 
-Installation replaces `herdr` at the selected destination only after verifying
-SHA-256. Staging and the final rename happen on the destination filesystem.
-Installing over an existing Herdr executable changes that installation to Aira;
-existing servers keep running. Settings and saved sessions use the existing
-Herdr locations.
+Installation replaces only `herdr-aira` at the selected destination after
+verifying SHA-256. It creates no `herdr` alias or symlink and leaves any upstream
+`herdr` executable untouched. Staging and the final rename happen on the
+destination filesystem. Settings and saved sessions use the existing Herdr
+locations; both commands can attach to compatible shared sessions. Launching
+Aira does not replace an already running upstream server.
 
 Fork binaries built before Aira distribution was added still contain the
 upstream updater. Migrate those installations once with this installer; only
-then use `herdr update` for subsequent Aira releases. Check that `herdr --version`
-contains `-aira.` before relying on the fork's self-update behavior.
+then use `herdr-aira update` for subsequent Aira releases. The old `herdr`
+executable is left in place; switch to the new command. Check that
+`herdr-aira --version` contains `-aira.` before relying on fork self-update.
 
 ## Update
 
 Run outside Herdr after detaching:
 
 ```sh
-herdr update
+herdr-aira update
 ```
 
 The installer and the application's foreground/background update checks both
@@ -75,14 +78,16 @@ URLs, and SHA-256 checksums. Both clients reject binaries from another repositor
 or another release. Application updates ignore equal or older release numbers.
 There is no fallback to upstream metadata or binaries if a request fails.
 
-`herdr channel show` reports `aira`. All channel switching is disabled, including
-`channel set stable` and `channel set preview`; it fails without editing config.
+`herdr-aira channel show` reports `aira`. All channel switching is disabled,
+including `channel set stable` and `channel set preview`; it fails without
+editing config.
 An existing `update.channel = "preview"` setting is preserved and ignored for
 binary update selection. Homebrew, mise, and Nix update paths are unsupported;
 install Aira in a standalone directory first. Windows self-update is disabled.
 Cross-platform automatic remote installation is disabled; install Aira on the
 SSH host with the same installer or provide a matching `HERDR_REMOTE_BINARY`.
-Same-platform remote binary copying continues to use the local fork executable.
+Same-platform remote binary copying installs the local fork executable as
+`~/.local/bin/herdr-aira`, preserving upstream `herdr` on the SSH host too.
 
 The existing update command retains its server restart/handoff prompts. It does
 not automatically convert an already running server to the new binary. Review
@@ -97,6 +102,9 @@ For example, a base `Cargo.toml` version of `0.9.5` and release number `12` prod
 CLI: herdr 0.9.5-aira.12
 Tag: aira-v12
 ```
+
+`herdr-aira --version` retains the `herdr` product prefix shown above; the
+installed command remains `herdr-aira`.
 
 Increment the release number globally, including when adopting a new upstream
 base: `0.9.5-aira.12` → `0.9.6-aira.13`. Do not reset it on an upstream version
@@ -147,7 +155,7 @@ This procedure operates only on `three4c/herdr`. Do not run the upstream
    ```sh
    stage="$(mktemp -d)"
    curl -fsSL https://github.com/three4c/herdr/releases/latest/download/install.sh | HERDR_INSTALL_DIR="$stage" sh
-   "$stage/herdr" --version
+   "$stage/herdr-aira" --version
    ```
 
 An upload failure may leave a draft; rerunning the failed workflow can replace
@@ -164,7 +172,7 @@ the original project and this personal fork. Aira change comments mark modified
 Rust source files, including the earlier tab-focused changes.
 
 Each executable contains the complete Herdr license, fork notice, and preserved
-third-party license texts. Display them offline with `herdr --licenses`.
+third-party license texts. Display them offline with `herdr-aira --licenses`.
 Installing or updating the raw binary preserves these texts as part of the
 executable; separate license downloads are not required. The same texts are
 also published as Release assets for direct access.
@@ -213,6 +221,7 @@ just fork-update-smoke /temporary/path/old-herdr /temporary/path/new-herdr
 The smoke test installs and updates only temporary copies, substitutes all HTTP
 requests, isolates config/state/socket paths, and starts no servers. It verifies
 a real binary update, repeated updates, downgrade rejection, integrity and
-network failures, fork URL validation, legacy preview settings, and disabled
-channel switching. Native execution of the other three target binaries is
+network failures, fork URL validation, preservation of upstream executables,
+legacy preview settings, and disabled channel switching. Native execution of
+the other three target binaries is
 validated by GitHub Actions at publication time.

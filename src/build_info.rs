@@ -32,6 +32,15 @@ pub fn is_fork() -> bool {
     true
 }
 
+/// Installed command name; configuration and session namespaces stay shared.
+pub fn executable_name() -> &'static str {
+    if is_fork() {
+        "herdr-aira"
+    } else {
+        "herdr"
+    }
+}
+
 pub fn fork_release() -> u64 {
     env!("HERDR_FORK_RELEASE")
         .parse()

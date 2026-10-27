@@ -60,7 +60,11 @@ else:
     sys.stdout.write(Path(os.environ["AIRA_SMOKE_MANIFEST"]).read_text(encoding="utf-8"))
 ''', encoding="utf-8", newline="\n")
         curl.chmod(0o755)
-        binary = root / "herdr"
+        binary = root / "herdr-aira"
+        upstream_binary = root / "herdr"
+        upstream_payload = b'#!/bin/sh\nprintf invoked >> "$AIRA_SMOKE_UPSTREAM_CALLS"\nexit 99\n'
+        upstream_binary.write_bytes(upstream_payload)
+        upstream_binary.chmod(0o755)
         shutil.copy2(old, binary)
         config = root / "config.toml"
         config.write_text('[update]\nchannel = "preview"\n', encoding="utf-8", newline="\n")
@@ -69,12 +73,13 @@ else:
         manifest_path = root / "manifest.json"
         env = {key: value for key, value in os.environ.items() if not key.startswith("HERDR_")}
         env.update({
-            "PATH": f"{commands}{os.pathsep}{os.environ['PATH']}",
+            "PATH": f"{commands}{os.pathsep}{root}{os.pathsep}{os.environ['PATH']}",
             "HERDR_CONFIG_PATH": str(config),
             "XDG_CONFIG_HOME": str(root / "config"),
             "XDG_STATE_HOME": str(root / "state"),
             "HERDR_SOCKET_PATH": str(root / "absent.sock"),
             "HERDR_CLIENT_SOCKET_PATH": str(root / "absent-client.sock"),
+            "AIRA_SMOKE_UPSTREAM_CALLS": str(root / "upstream-called"),
             "AIRA_SMOKE_REQUESTS": str(requests),
             "AIRA_SMOKE_MANIFEST": str(manifest_path),
             "AIRA_SMOKE_PAYLOAD": str(new),
@@ -95,6 +100,8 @@ else:
             result = subprocess.run([str(binary), *args], env=env, input="", capture_output=True, text=True, timeout=30)
             assert (result.returncode == 0) == succeeds, result.stdout + result.stderr
             assert config.read_bytes() == original_config
+            assert upstream_binary.read_bytes() == upstream_payload
+            assert not (root / "upstream-called").exists()
             return result
 
         for channel in ("stable", "preview"):
@@ -103,10 +110,14 @@ else:
         assert not requests.exists()
 
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="\n")
+        (root / "install").mkdir()
+        (root / "install/herdr").write_bytes(upstream_payload)
         installer_env = {**env, "HERDR_INSTALL_DIR": str(root / "install")}
         installed = subprocess.run(["/bin/sh", str(repo_root / "distribution/fork/install.sh")], env=installer_env, capture_output=True, text=True, timeout=30)
         assert installed.returncode == 0, installed.stdout + installed.stderr
-        assert identity(root / "install/herdr")[0] == new_identity
+        assert identity(root / "install/herdr-aira")[0] == new_identity
+
+        assert (root / "install/herdr").read_bytes() == upstream_payload
 
         bad = {**manifest, "sha256": {target: "0" * 64 for target in TARGETS}}
         manifest_path.write_text(json.dumps(bad), encoding="utf-8", newline="\n")
@@ -130,6 +141,9 @@ else:
         run("update")
         assert identity(binary)[0] == new_identity
         assert hashlib.sha256(binary.read_bytes()).hexdigest() == digest
+        assert "Usage: herdr-aira " in run("--help").stdout
+        assert "Usage: herdr-aira agent rename " in run("agent", "rename", "--help").stdout
+        assert "#compdef herdr-aira" in run("completion", "zsh").stdout
         requests.write_text("", encoding="utf-8", newline="\n")
         run("update")
         assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]
@@ -142,7 +156,7 @@ else:
         assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]
         assert identity(binary)[0] == new_identity
         assert not list(root.glob(".herdr-update-*.tmp"))
-        print(f"PASS: installer and {old_identity} -> {new_identity}; repeated update and downgrade ignored; checksum, network, upstream URL and channel guards verified; no servers started")
+        print(f"PASS: installer and {old_identity} -> {new_identity}; repeated update and downgrade ignored; checksum, network, upstream URL and channel guards verified; upstream executable preserved; no servers started")
 
 
 if __name__ == "__main__":

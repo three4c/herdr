@@ -11,5 +11,5 @@ change notices; the corresponding Git history records the individual changes.
 Upstream: https://github.com/herdrdev/herdr
 Fork source: https://github.com/three4c/herdr
 
-Use `herdr --licenses` to display the bundled Herdr license, this notice,
+Use `herdr-aira --licenses` to display the bundled Herdr license, this notice,
 and the preserved third-party license texts without a network connection.

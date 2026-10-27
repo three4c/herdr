@@ -163,7 +163,7 @@ fn run_channel_command(args: &[String]) -> std::io::Result<i32> {
             println!("aira (three4c/herdr)");
             return Ok(0);
         }
-        eprintln!("This fork uses only three4c/herdr releases. Channel switching is disabled; run `herdr update`.");
+        eprintln!("This fork uses only three4c/herdr releases. Channel switching is disabled; run `herdr-aira update`.");
         return Ok(1);
     }
     match args.first().map(|arg| arg.as_str()) {
