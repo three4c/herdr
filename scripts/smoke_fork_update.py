@@ -144,6 +144,10 @@ else:
         assert "Usage: herdr-aira " in run("--help").stdout
         assert "Usage: herdr-aira agent rename " in run("agent", "rename", "--help").stdout
         assert "#compdef herdr-aira" in run("completion", "zsh").stdout
+        assert "Usage: herdr-aira workspace list" in run("workspace", "list", "--help").stdout
+        assert "herdr-aira api <subcommand>" in run("--help").stdout
+        for arguments in (("--help",), ("agent", "--help")):
+            assert "herdr-aira --skill" in run(*arguments).stdout
         requests.write_text("", encoding="utf-8", newline="\n")
         run("update")
         assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]

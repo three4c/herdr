@@ -1,3 +1,4 @@
+// Aira fork: expect the distinct command in CLI help and startup guidance.
 use super::harness::*;
 
 #[test]
@@ -289,7 +290,7 @@ fn root_and_command_group_help_point_agents_to_plain_text_docs() {
             "Are you an AI? Use these resources ONLY IF your task specifically asks you to:",
             "https://herdr.dev/agent-guide.md",
             "https://herdr.dev/llms.txt",
-            "herdr --skill",
+            "herdr-aira --skill",
         ] {
             assert!(
                 stdout.contains(expected),
@@ -436,7 +437,7 @@ fn completion_command_prints_zsh_script_without_session_startup() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("#compdef herdr"), "stdout: {stdout}");
+    assert!(stdout.contains("#compdef herdr-aira"), "stdout: {stdout}");
     assert!(
         !stdout.contains("--cwd=[]"),
         "zsh completions should not suggest equals-style values unsupported by most manual parsers: {stdout}"
@@ -461,7 +462,7 @@ fn root_help_hides_explicit_client_command() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        !stdout.contains("herdr client"),
+        !stdout.contains("herdr-aira client"),
         "root help should not advertise the internal client command: {stdout}"
     );
 }
@@ -476,7 +477,7 @@ fn root_help_advertises_api_schema_command_group() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("herdr api <subcommand>"),
+        stdout.contains("herdr-aira api <subcommand>"),
         "root help should advertise the api command group: {stdout}"
     );
 }

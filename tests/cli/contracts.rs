@@ -1,3 +1,4 @@
+// Aira fork: expect the distinct command in CLI help and startup guidance.
 use super::harness::*;
 use serde_json::{json, Value};
 
@@ -476,7 +477,10 @@ fn workspace_help_preserves_public_and_runtime_grammar_split() {
         assert!(captured.requests.is_empty(), "{leaf}");
         assert!(captured.output.stderr.is_empty(), "{leaf}");
         let help = String::from_utf8(captured.output.stdout).unwrap();
-        assert!(help.contains(&format!("herdr workspace {leaf}")), "{help}");
+        assert!(
+            help.contains(&format!("herdr-aira workspace {leaf}")),
+            "{help}"
+        );
         for fragment in fragments {
             assert!(help.contains(fragment), "missing {fragment:?}: {help}");
         }

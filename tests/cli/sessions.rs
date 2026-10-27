@@ -1,3 +1,4 @@
+// Aira fork: expect the distinct command in CLI help and startup guidance.
 // Aira fork: modified for personal tab-focused behavior and fork distribution.
 use super::harness::*;
 
@@ -229,7 +230,7 @@ fn dead_server_cli_reports_one_session_aware_json_line() {
         &runtime_dir,
         &["--session", "foo", "workspace", "create"],
     );
-    assert_server_not_running(missing, &named_socket, "herdr session attach foo");
+    assert_server_not_running(missing, &named_socket, "herdr-aira session attach foo");
 
     let stale_socket = runtime_dir.join("stale.sock");
     drop(UnixListener::bind(&stale_socket).unwrap());
@@ -243,7 +244,7 @@ fn dead_server_cli_reports_one_session_aware_json_line() {
         .env_remove("HERDR_ENV")
         .output()
         .unwrap();
-    assert_server_not_running(stale, &stale_socket, "herdr");
+    assert_server_not_running(stale, &stale_socket, "herdr-aira");
 
     cleanup_test_base(&base);
 }

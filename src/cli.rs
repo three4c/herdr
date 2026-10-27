@@ -52,7 +52,7 @@ pub(crate) const AGENT_HELP_FOOTER: &str = concat!(
     "  Debug or investigate a problem with Herdr:\n",
     "    https://herdr.dev/llms.txt\n",
     "  Control Herdr panes, agents, or workspaces:\n",
-    "    SKIP if a Herdr skill is already in your context. Otherwise run: herdr --skill",
+    "    SKIP if a Herdr skill is already in your context. Otherwise run: herdr-aira --skill",
 );
 
 pub(crate) fn parse_token_assignment(raw: &str) -> Result<(String, Option<String>), String> {
