@@ -2665,8 +2665,7 @@ mod channel_tests {
         let (os, arch) = platform_target();
         if !crate::fork_distribution::TARGETS.contains(&format!("{os}-{arch}").as_str()) {
             let error = release_info_from_fork_manifest(&manifest, 11)
-                .err()
-                .expect("unsupported fork platform");
+                .expect_err("unsupported fork platform");
             assert!(error.contains("unsupported fork target"));
             return;
         }
