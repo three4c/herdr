@@ -7,6 +7,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Test-AiraUpdateChannel {
+    param([string]$ExePath)
+
+    $installedChannel = [string](& $ExePath channel show)
+    if ($LASTEXITCODE -ne 0) {
+        throw "could not read the installed fixture binary update channel"
+    }
+    return $installedChannel.Trim() -match '^aira(?:\s|$)'
+}
+
 $installerPath = (Resolve-Path -LiteralPath "$PSScriptRoot\..\distribution\install.ps1").Path
 $bootstrapPath = (Resolve-Path -LiteralPath "$PSScriptRoot\..\distribution\install.cmd").Path
 $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
@@ -312,11 +322,7 @@ try {
             InstallDir = $installDir
             ExpectedBuildId = "installer-test"
         }
-        $installedVersion = [string](& (Join-Path $installDir "herdr.exe") --version)
-        if ($LASTEXITCODE -ne 0) {
-            throw "could not read the installed fixture binary identity"
-        }
-        if ($installedVersion.Trim() -match '-aira\.[0-9]+$') {
+        if (Test-AiraUpdateChannel -ExePath (Join-Path $installDir "herdr.exe")) {
             # The fork deliberately cannot select upstream stable/preview channels.
             $priorTarget = [string](Get-Item -LiteralPath $installDir -Force).Target
             $forkChannelRejected = $false

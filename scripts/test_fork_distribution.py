@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -152,6 +154,17 @@ fi
 
 
 class ForkReleaseTests(unittest.TestCase):
+    def test_windows_installer_selects_fork_by_channel_without_version_parsing(self):
+        powershell = shutil.which("pwsh") or shutil.which("powershell.exe")
+        if not powershell:
+            self.skipTest("PowerShell is required for the portable Windows channel contract")
+        result = subprocess.run(
+            [powershell, "-NoProfile", "-NonInteractive", "-File", str(ROOT / "scripts/test_fork_windows_channel.ps1")],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PASS: Aira installer branch follows channel show", result.stdout)
+
     def test_protocol_source_is_read_as_utf8_on_every_host(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "wire.rs"
