@@ -659,6 +659,52 @@ fn pane_cycle_last_and_agent_actions_resolve_to_stable_pane_ids() {
 }
 
 #[test]
+fn working_agent_icon_spins_only_while_an_agent_is_working() {
+    let mut projected = snapshot();
+    projected.agents = vec![ClientShellAgent {
+        pane_id: "pane_1".into(),
+        workspace_id: "ws_1".into(),
+        tab_id: "tab_1".into(),
+        name: Some("pi one".into()),
+        display_agent: None,
+        agent: Some("pi".into()),
+        title: None,
+        terminal_title: None,
+        terminal_title_stripped: None,
+        agent_status: AgentStatus::Working,
+        state_change_seq: 1,
+        state_labels: Vec::new(),
+        tokens: Vec::new(),
+        focused: true,
+    }];
+    let mut config = Config::default();
+    config.ui.sidebar.agents.rows = vec![vec![crate::config::AgentSidebarToken::StateIcon]];
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
+    state.config.spaces.visible = true;
+    state.set_snapshot(Box::new(projected));
+    state.set_pane_surface(surface());
+
+    let epoch = state.spinner_epoch;
+    let at = |millis| epoch + std::time::Duration::from_millis(millis);
+    assert!(!state.tick_working_spinner(at(0)));
+    assert!(state.tick_working_spinner(at(250)));
+    assert_eq!(state.config.working_frame, 2);
+    assert!(!state.tick_working_spinner(at(280)));
+    let frame = state.compose(106, 30).expect("working agent frame");
+    let text = frame
+        .cells
+        .iter()
+        .map(|cell| cell.symbol.as_str())
+        .collect::<String>();
+    assert!(text.contains('⠹'), "frame: {text}");
+
+    let mut idle = state.snapshot.as_deref().cloned().expect("snapshot");
+    idle.agents[0].agent_status = AgentStatus::Idle;
+    state.set_snapshot(Box::new(idle));
+    assert!(!state.tick_working_spinner(at(550)));
+}
+
+#[test]
 fn agent_sidebar_honors_priority_symbols_tokens_and_stable_hits() {
     let mut projected = snapshot();
     let mut second_pane = projected.panes[0].clone();

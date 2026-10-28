@@ -26,6 +26,7 @@ pub(crate) struct ClientShellConfig {
     pub(super) agents: crate::config::AgentsSidebarConfig,
     pub(super) agent_panel_sort: crate::config::AgentPanelSortConfig,
     pub(super) status_indicators: crate::config::StatusIndicatorStyle,
+    pub(super) working_frame: usize,
     pub(super) sound_enabled: bool,
     pub(super) toast_delivery: crate::config::ToastDelivery,
     pub(super) toast_delay_seconds: u64,
@@ -896,6 +897,7 @@ pub(crate) struct ClientShellState {
     pub(super) last_composed_size: Option<(u16, u16)>,
     pub(super) last_composed_at: Option<std::time::Instant>,
     pub(super) selection_repaint_deadline: Option<std::time::Instant>,
+    pub(super) spinner_epoch: std::time::Instant,
     pub(super) hits: ShellHitMap,
     pub(super) endpoints: Vec<ClientShellEndpoint>,
     pub(super) active_endpoint_id: ClientEndpointId,
@@ -1070,6 +1072,7 @@ impl ClientShellState {
             last_composed_size: None,
             last_composed_at: None,
             selection_repaint_deadline: None,
+            spinner_epoch: std::time::Instant::now(),
             hits: ShellHitMap::default(),
             endpoints: vec![local_endpoint()],
             active_endpoint_id: ClientEndpointId::Local,
@@ -1888,6 +1891,29 @@ impl ClientShellState {
             .min()
             .map(|deadline| deadline.saturating_duration_since(now).min(default))
             .unwrap_or(default)
+    }
+
+    pub(crate) fn tick_working_spinner(&mut self, now: std::time::Instant) -> bool {
+        use crate::api::schema::AgentStatus;
+        let any_working = self
+            .snapshot
+            .iter()
+            .chain(self.endpoints.iter().filter_map(|e| e.snapshot.as_ref()))
+            .any(|snapshot| {
+                snapshot
+                    .agents
+                    .iter()
+                    .any(|agent| agent.agent_status == AgentStatus::Working)
+            });
+        if !any_working {
+            return false;
+        }
+        let ticks = now
+            .saturating_duration_since(self.spinner_epoch)
+            .as_millis()
+            / WORKING_SPINNER_INTERVAL.as_millis();
+        let frame = (ticks % WORKING_SPINNER_FRAMES.len() as u128) as usize;
+        std::mem::replace(&mut self.config.working_frame, frame) != frame
     }
 
     pub(crate) fn invalidate_pane_surface(&mut self) {
