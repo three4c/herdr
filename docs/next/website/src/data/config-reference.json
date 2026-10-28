@@ -1054,7 +1054,7 @@
           "key": "ui.status_indicators",
           "type": "enum",
           "default": "\"dots\"",
-          "description": "Choose compact color dots or distinct static symbols for agent states.",
+          "description": "Choose compact color dots or distinct symbols for agent states. Working agents always show an animated spinner.",
           "values": [
             "dots",
             "symbols"

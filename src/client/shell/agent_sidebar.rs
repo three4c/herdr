@@ -79,7 +79,11 @@ pub(super) fn render_tab_sidebar(
                     rect.x,
                     rect.y,
                     rect.width,
-                    status_icon(agent.agent_status, config.status_indicators),
+                    status_icon(
+                        agent.agent_status,
+                        config.status_indicators,
+                        config.working_frame,
+                    ),
                     style,
                 );
                 hits.agents.push((rect, pane_id));
@@ -510,7 +514,7 @@ pub(super) fn render_agent_row(
     let status_style = Style::default().fg(status_color(row.status, palette));
     let secondary = Style::default().fg(palette.overlay0);
     let icon = (
-        status_icon(row.status, config.status_indicators),
+        status_icon(row.status, config.status_indicators, config.working_frame),
         Style::default().fg(status_color(row.status, palette)),
     );
     let rows = if row.rows.is_empty() {

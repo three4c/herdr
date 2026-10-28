@@ -110,7 +110,11 @@ fn render_header_status(
         name_width.min(3),
         &format!(
             " {} ",
-            status_icon(workspace.agent_status, config.status_indicators)
+            status_icon(
+                workspace.agent_status,
+                config.status_indicators,
+                config.working_frame
+            )
         ),
         Style::default()
             .fg(status_color(workspace.agent_status, palette))
@@ -197,6 +201,7 @@ fn render_header_button(
             status_icon(
                 crate::api::schema::AgentStatus::Blocked,
                 config.status_indicators,
+                config.working_frame,
             ),
             Style::default().fg(palette.red).bg(palette.surface0),
         );
@@ -296,7 +301,11 @@ fn render_agent_summary(
             (crate::config::StatusIndicatorStyle::Dots, AgentStatus::Blocked) => Some("◉"),
             (crate::config::StatusIndicatorStyle::Dots, AgentStatus::Done) => Some("●"),
             (crate::config::StatusIndicatorStyle::Dots, _) => None,
-            _ => Some(status_icon(status, config.status_indicators)),
+            _ => Some(status_icon(
+                status,
+                config.status_indicators,
+                config.working_frame,
+            )),
         };
         let text = symbol.map_or_else(
             || format!("{count} {label}"),
@@ -726,7 +735,11 @@ fn mobile_items(
                     Line::from(vec![
                         Span::styled("  ", Style::default().bg(background)),
                         Span::styled(
-                            status_icon(agent.agent_status, config.status_indicators),
+                            status_icon(
+                                agent.agent_status,
+                                config.status_indicators,
+                                config.working_frame,
+                            ),
                             Style::default()
                                 .fg(if endpoint.stale() {
                                     palette.overlay0
@@ -858,7 +871,11 @@ fn mobile_items(
                                 .add_modifier(dim),
                         ),
                         Span::styled(
-                            status_icon(workspace.agent_status, config.status_indicators),
+                            status_icon(
+                                workspace.agent_status,
+                                config.status_indicators,
+                                config.working_frame,
+                            ),
                             Style::default().fg(status).bg(background).add_modifier(dim),
                         ),
                         Span::styled(" ", Style::default().bg(background)),
