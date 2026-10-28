@@ -1,3 +1,4 @@
+// Aira fork: give bridge test process scheduling a separate harness deadline.
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
@@ -6,6 +7,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 const TIMEOUT: Duration = Duration::from_millis(300);
+// CI can delay the child after connect; this is not the bridge's idle deadline.
+const HARNESS_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[test]
 fn bridge_child() {
@@ -13,6 +16,9 @@ fn bridge_child() {
         return;
     };
     let stream = crate::ipc::connect_local_stream(&PathBuf::from(path)).unwrap();
+    if let Ok(delay) = std::env::var("HERDR_BRIDGE_TEST_COPY_DELAY_MS") {
+        std::thread::sleep(Duration::from_millis(delay.parse().unwrap()));
+    }
     let timeout = (std::env::var_os("HERDR_BRIDGE_TEST_LEGACY").is_none()).then_some(TIMEOUT);
     super::unix_common::forward_remote_bridge_stdio_with_timeout(stream, timeout).unwrap();
 }
@@ -25,6 +31,10 @@ struct Bridge {
 
 impl Bridge {
     fn start(legacy: bool) -> Self {
+        Self::start_with_copy_delay(legacy, Duration::ZERO)
+    }
+
+    fn start_with_copy_delay(legacy: bool, copy_delay: Duration) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
             "hbl-{}-{}.sock",
@@ -42,6 +52,10 @@ impl Bridge {
             ])
             .env("HERDR_BRIDGE_TEST_SOCKET", &path)
             .env_remove("HERDR_BRIDGE_TEST_LEGACY")
+            .env(
+                "HERDR_BRIDGE_TEST_COPY_DELAY_MS",
+                copy_delay.as_millis().to_string(),
+            )
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());
@@ -49,7 +63,7 @@ impl Bridge {
             command.env("HERDR_BRIDGE_TEST_LEGACY", "1");
         }
         let mut child = command.spawn().unwrap();
-        let deadline = Instant::now() + Duration::from_secs(3);
+        let deadline = Instant::now() + HARNESS_TIMEOUT;
         let stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
@@ -68,9 +82,7 @@ impl Bridge {
             }
         };
         stream.set_nonblocking(false).unwrap();
-        stream
-            .set_read_timeout(Some(Duration::from_secs(3)))
-            .unwrap();
+        stream.set_read_timeout(Some(HARNESS_TIMEOUT)).unwrap();
         stream
             .set_write_timeout(Some(Duration::from_millis(100)))
             .unwrap();
@@ -82,7 +94,7 @@ impl Bridge {
     }
 
     fn wait(&mut self) -> ExitStatus {
-        let deadline = Instant::now() + Duration::from_secs(3);
+        let deadline = Instant::now() + HARNESS_TIMEOUT;
         loop {
             if let Some(status) = self.child.try_wait().unwrap() {
                 return status;
@@ -164,5 +176,11 @@ fn legacy_bridge_has_no_idle_deadline() {
     let mut bridge = Bridge::start(true);
     std::thread::sleep(TIMEOUT * 2);
     assert!(bridge.child.try_wait().unwrap().is_none());
+    assert!(bridge.finish().contains("final-output-after-stdin-eof"));
+}
+
+#[test]
+fn legacy_bridge_drains_after_delayed_copy_start() {
+    let mut bridge = Bridge::start_with_copy_delay(true, Duration::from_secs(4));
     assert!(bridge.finish().contains("final-output-after-stdin-eof"));
 }

@@ -15,7 +15,7 @@ test:
 # Run repository maintenance contract tests
 maintenance-test:
     {{python}} scripts/fork_licenses.py check
-    {{python}} -m unittest scripts.test_fork_distribution
+    {{python}} -m unittest scripts.test_fork_distribution scripts.test_fork_release_request
     {{python}} -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_config_reference_check scripts.test_docs_translation_parity scripts.test_hermes_integration_asset scripts.test_package_windows_conpty scripts.test_preview scripts.test_release scripts.test_unix_installer scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty scripts.test_windows_cross scripts.test_windows_input
     bun test scripts/release-workflows.test.ts
     bun test scripts/fork-release-workflow.test.ts
@@ -23,7 +23,7 @@ maintenance-test:
 # Validate the personal fork's installer and publishing contract without building.
 fork-distribution-test:
     {{python}} scripts/fork_licenses.py check
-    {{python}} -m unittest scripts.test_fork_distribution
+    {{python}} -m unittest scripts.test_fork_distribution scripts.test_fork_release_request
     bun test scripts/fork-release-workflow.test.ts
 
 # Exercise real fork binaries in temporary paths, with no server or network.

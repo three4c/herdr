@@ -3,6 +3,16 @@ name: Aira fork release
 on:
   push:
     tags: ["aira-v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Aira version to publish (major.minor.patch)
+        required: true
+        type: string
+      source_sha:
+        description: Reviewed master SHA (empty selects master at dispatch time)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,12 +27,17 @@ env:
   RUST_TOOLCHAIN_VERSION: 1.96.1
 
 jobs:
-  preflight:
-    if: github.repository == 'three4c/herdr' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/aira-v')
+  request:
+    if: github.repository == 'three4c/herdr' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
+    permissions:
+      contents: write
+      actions: read
     outputs:
-      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.request.outputs.tag }}
+      commit: ${{ steps.request.outputs.commit }}
+      baseline: ${{ steps.request.outputs.baseline }}
     steps:
       - &require-fork-admin
         name: Require fork admins for publishing and reruns
@@ -38,6 +53,37 @@ jobs:
           done
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Wait for tested master and create annotated release tag
+        id: request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_VERSION: ${{ inputs.version }}
+          REQUEST_COMMIT: ${{ inputs.source_sha }}
+        run: python3 scripts/fork_release_request.py
+
+  preflight:
+    needs: request
+    if: always() && github.repository == 'three4c/herdr' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/aira-v')) || (github.event_name == 'workflow_dispatch' && needs.request.result == 'success'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      commit: ${{ steps.release.outputs.commit }}
+      baseline: ${{ steps.release.outputs.baseline }}
+    env:
+      RELEASE_TAG: ${{ needs.request.outputs.tag || github.ref_name }}
+    steps:
+      - *require-fork-admin
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.request.outputs.commit || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - &python
@@ -52,11 +98,18 @@ jobs:
         run: |
           set -euo pipefail
           git merge-base --is-ancestor HEAD origin/master
-          test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
+          test "$(git cat-file -t "$RELEASE_TAG")" = tag
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
             jq '[.[][] | select(.draft == false) | .tag_name]' > "$RUNNER_TEMP/published.json"
-          version="$(python3 scripts/fork_release.py check --tag "$GITHUB_REF_NAME" --published "$RUNNER_TEMP/published.json")"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          version="$(python3 scripts/fork_release.py check --tag "$RELEASE_TAG" --published "$RUNNER_TEMP/published.json")"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
+          baseline="$(python3 -c 'import json,sys; from scripts.fork_release import version_parts; tags = [t for t in json.load(open(sys.argv[1])) if t.startswith("aira-v")]; print(max(tags, key=lambda t: version_parts(t.removeprefix("aira-v")), default=""))' "$RUNNER_TEMP/published.json")"
+          {
+            echo "version=$version"
+            echo "tag=$RELEASE_TAG"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "baseline=$baseline"
+          } >> "$GITHUB_OUTPUT"
       - name: Install Rust
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
         with:
@@ -73,7 +126,7 @@ jobs:
       - name: Install test tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build
+          sudo apt-get install -y cmake ninja-build tmux jq lsof perl sysstat
           cargo install cargo-nextest --locked
           cargo install just --locked
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
@@ -83,10 +136,25 @@ jobs:
         run: |
           just ci
           just docs-contract-test
+      - name: Compare release performance in disposable sessions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HERDR_FORK_VERSION: ${{ steps.release.outputs.version }}
+          BASELINE_TAG: ${{ steps.release.outputs.baseline }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BASELINE_TAG" ]; then
+            mkdir -p "$RUNNER_TEMP/baseline"
+            gh release download "$BASELINE_TAG" --repo "$GITHUB_REPOSITORY" --pattern herdr-linux-x86_64 --pattern SHA256SUMS --dir "$RUNNER_TEMP/baseline"
+            (cd "$RUNNER_TEMP/baseline"; grep '  herdr-linux-x86_64$' SHA256SUMS | sha256sum --check)
+            chmod +x "$RUNNER_TEMP/baseline/herdr-linux-x86_64"
+            export HERDR_PERF_BASELINE_BIN="$RUNNER_TEMP/baseline/herdr-linux-x86_64"
+          fi
+          just bench-release-smoke
 
   build:
     needs: preflight
-    if: github.repository == 'three4c/herdr'
+    if: ${{ !cancelled() && github.repository == 'three4c/herdr' && needs.preflight.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -112,6 +180,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
+          ref: ${{ needs.preflight.outputs.commit }}
           persist-credentials: false
       - *python
       - name: Install Rust
@@ -155,15 +224,19 @@ jobs:
 
   publish:
     needs: [preflight, build]
-    if: github.repository == 'three4c/herdr' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/aira-v')
+    if: ${{ !cancelled() && github.repository == 'three4c/herdr' && needs.preflight.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
     steps:
       - *require-fork-admin
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
+          ref: ${{ needs.preflight.outputs.commit }}
+          fetch-depth: 0
           persist-credentials: false
       - *python
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -174,7 +247,7 @@ jobs:
       - name: Prepare checksums and fork manifest
         run: |
           python3 scripts/fork_licenses.py check
-          python3 scripts/fork_release.py prepare --tag "$GITHUB_REF_NAME" --assets artifacts --output release-assets
+          python3 scripts/fork_release.py prepare --tag "$RELEASE_TAG" --assets artifacts --output release-assets
       - name: Publish complete fork release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -182,13 +255,44 @@ jobs:
           set -euo pipefail
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
             jq '[.[][] | select(.draft == false) | .tag_name]' > "$RUNNER_TEMP/published.json"
-          python3 scripts/fork_release.py check --tag "$GITHUB_REF_NAME" --published "$RUNNER_TEMP/published.json"
+          python3 scripts/fork_release.py check --tag "$RELEASE_TAG" --published "$RUNNER_TEMP/published.json"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
           # A failed upload may leave a draft. Published releases are never overwritten.
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft > "$RUNNER_TEMP/existing.json" 2>/dev/null; then
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft > "$RUNNER_TEMP/existing.json" 2>/dev/null; then
             jq -e '.isDraft == true' "$RUNNER_TEMP/existing.json"
           else
-            git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.txt"
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.txt"
+            git for-each-ref --format='%(contents)' "refs/tags/$RELEASE_TAG" > "$RUNNER_TEMP/release-notes.txt"
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.txt"
           fi
-          gh release upload "$GITHUB_REF_NAME" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
-          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest
+
+  verify:
+    needs: [preflight, publish]
+    if: ${{ !cancelled() && github.repository == 'three4c/herdr' && needs.preflight.result == 'success' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - *require-fork-admin
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.preflight.outputs.commit }}
+          persist-credentials: false
+      - *python
+      - name: Verify public installation and update in temporary directories
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.preflight.outputs.commit }}
+          BASELINE_TAG: ${{ needs.preflight.outputs.baseline }}
+        run: |
+          set -euo pipefail
+          args=(--tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" --report "$RUNNER_TEMP/release-verification.json")
+          if [ -n "$BASELINE_TAG" ]; then args+=(--previous-tag "$BASELINE_TAG"); fi
+          python3 scripts/verify_fork_release.py "${args[@]}"
+          { echo 'Public installation and update verification passed.'; echo '```json'; cat "$RUNNER_TEMP/release-verification.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: aira-release-verification
+          path: ${{ runner.temp }}/release-verification.json
+          if-no-files-found: error
