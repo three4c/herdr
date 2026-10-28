@@ -129,56 +129,64 @@ there were no installed users to migrate. Published releases begin at
 
 ## Publish a release
 
-This procedure operates only on `three4c/herdr`. Do not run the upstream
-`just release` or `just preview` recipes for Aira.
+Release only when the owner requests it. Merging a PR into `master` does not
+publish a release. The project-local `aira-release` skill reviews the diff since
+the greatest published Aira tag, selects a patch/minor/major increment, and starts
+the existing **Aira fork release** workflow. Cargo retains the upstream version.
 
-1. Review and merge the distribution implementation into the fork's `master`.
-   Confirm GitHub Actions is enabled in the fork. The workflow uses the built-in
-   `GITHUB_TOKEN`; only its publish job requests `contents: write`. No upstream
-   secrets or website deployment credentials are needed. GitHub tag rules and
-   organization policies must allow the owner to push `aira-v*` tags and the
-   workflow to create Releases.
-2. Fetch the fork and select the reviewed source on `origin/master`. Confirm
-   `git remote get-url origin` points to `three4c/herdr`, the worktree is clean,
-   and the intended changes are included. Run `just ci`,
-   `just docs-contract-test`, and `just fork-distribution-test` with Bun 1.3.14
-   and Python 3.11 or newer. No Windows SDK is required for these checks.
-3. Choose an Aira version greater than every published `aira-v<major.minor.patch>`
-   release. The first release is `0.1.0`. Create an annotated tag and push that
-   specific tag:
+After this workflow change is merged, start a release from the Actions page on
+`master` with `version`, or use the following example (replace both values):
 
-   ```sh
-   git fetch origin master --tags
-   git tag -a aira-v0.1.0 origin/master -m "release: aira v0.1.0"
-   git push origin refs/tags/aira-v0.1.0
-   ```
+```sh
+gh workflow run fork-release.yml --repo three4c/herdr --ref master \
+  -f version=0.1.1 -f source_sha="<reviewed-full-master-sha>"
+```
 
-   Subsequent releases can be `aira-v0.1.1`, `aira-v0.2.0`, and so on. Tagging
-   supplies the Aira version to the build; no Cargo version bump is needed.
-   Inspect the selected source and get commit-message alignment before committing
-   any source changes.
-4. Monitor **Aira fork release** in the fork's Actions tab. It checks the original
-   and rerun actors have fork admin permission, validates master ancestry, the
-   annotated tag and increasing Aira version, and runs native CI. It builds
-   and executes `--version` on native runners for all four targets. Python 3.13,
-   Bun 1.3.14, Rust 1.96.1, and Zig 0.16.0 are pinned in the workflow.
-5. After every build succeeds, it packages four binaries, `install.sh`,
-   `fork-latest.json`, `LICENSE`, `FORK-NOTICE.txt`, `THIRD-PARTY-NOTICES.txt`,
-   and `SHA256SUMS`. It uploads to a draft before publishing
-   the complete release as Latest. Check the ten assets and run the installer
-   in a temporary destination before announcing the release.
+The optional `source_sha` must equal master at dispatch time, so changes merged
+after the AI's review cannot silently enter the release. An empty value on the
+Actions page selects master at dispatch time. The selected SHA remains fixed
+throughout the build. Both the original and rerun actors must be fork admins.
+Only the tag-creation and publication jobs request write permission. The built-in
+`GITHUB_TOKEN` is sufficient when fork tag rules permit it; no PAT, upstream
+secret, or website deployment credential is needed.
 
-   ```sh
-   stage="$(mktemp -d)"
-   curl -fsSL https://github.com/three4c/herdr/releases/latest/download/install.sh | HERDR_INSTALL_DIR="$stage" sh
-   "$stage/herdr-aira" --version
-   ```
+Actions performs these steps:
 
-An upload failure may leave a draft; rerunning the failed workflow can replace
-draft assets and complete publication. Already published Aira versions are
-rejected and never overwritten. Publication is serialized and rechecks the
-sequence just before publishing, so an older queued build cannot become Latest.
-Use a new version to ship a correction. Keep all published Aira releases and tags.
+1. Validate the independent Aira version and ensure it exceeds all published
+   Aira releases. Wait up to 30 minutes for the selected commit's master CI.
+   Failed, cancelled, missing, or skipped required CI cannot qualify. Nix and
+   distribution checks must also pass when present for that commit. Waiting
+   runs in Actions and consumes no agent monitoring tokens.
+2. Create an annotated `aira-v<version>` tag at the fixed SHA. An existing
+   unpublished annotated tag at the same SHA can resume; a moved or lightweight
+   tag is rejected. Tags created by `GITHUB_TOKEN` do not trigger another push
+   workflow, so the existing build jobs continue in this same workflow run.
+3. Run native checks and release performance smoke in disposable sessions. Use
+   the previous Aira release binary as the performance baseline when available;
+   the first release compares with upstream stable. No ordinary session is used.
+4. Build and execute version/license checks on native runners for Linux x86_64,
+   Linux aarch64, Intel macOS, and Apple Silicon macOS. Package the same ten
+   binaries/metadata/license/checksum assets, upload to a draft, and publish as
+   Latest after every build succeeds.
+5. Download the public assets, verify all checksums, source identity and platform
+   headers, and exercise an anonymous install/reinstall in a temporary directory
+   on Linux x86_64. Check an equal-version update and, when a previous Aira release
+   exists, a real update from that binary. Preserve config and an upstream `herdr`
+   sentinel; start no servers. Store a verification report in the workflow's
+   artifacts and summary. Other platforms execute their build identity checks;
+   the public install smoke currently runs on Linux x86_64.
+
+The run URL is the completion report. Continuous agent monitoring is unnecessary.
+A verification failure after publication leaves the release public; inspect the
+failure rather than deleting published assets or moving its tag.
+
+Manual pushes of owner-created annotated `aira-v*` tags remain supported and use
+that same build/publication/verification pipeline. They bypass only the manual
+request's prior-master-CI waiting stage; native release checks still run. Do not
+use the upstream `just release` or `just preview` recipes for Aira.
+
+Published versions are never overwritten. Publication is serialized and rechecks
+the version before publishing. Use a newer version to ship a correction.
 
 ## Licenses and fork notices
 

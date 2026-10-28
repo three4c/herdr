@@ -67,11 +67,11 @@ else:
       chmodSync(join(dir, "gh"), 0o700);
       const preflight = spawnSync("bash", ["-euo", "pipefail", "-c", workflow.jobs.preflight.steps.find((step: any) => step.id === "release").run], {
         cwd: dir,
-        env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", GITHUB_REF_NAME: "aira-v0.1.0", GITHUB_OUTPUT: join(dir, "github-output"), AIRA_TEST_SCENARIO: "new" },
+        env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", RELEASE_TAG: "aira-v0.1.0", GITHUB_OUTPUT: join(dir, "github-output"), AIRA_TEST_SCENARIO: "new" },
         encoding: "utf8",
       });
       expect(preflight.status, preflight.stderr).toBe(0);
-      expect(readFileSync(join(dir, "github-output"), "utf8")).toBe("version=0.1.0\n");
+      expect(readFileSync(join(dir, "github-output"), "utf8")).toContain("version=0.1.0\ntag=aira-v0.1.0\ncommit=");
       const script = workflow.jobs.publish.steps.find((step: any) => step.name === "Publish complete fork release").run;
       const cases: Array<[string, number, string[]]> = [
         ["new", 0, ["view", "create", "upload", "edit"]],
@@ -86,7 +86,7 @@ else:
         rmSync(join(dir, "created-notes.txt"), { force: true });
         const result = spawnSync("bash", ["-euo", "pipefail", "-c", script], {
           cwd: dir,
-          env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", GITHUB_REF_NAME: "aira-v0.1.0", AIRA_TEST_SCENARIO: scenario },
+          env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", RELEASE_TAG: "aira-v0.1.0", AIRA_TEST_SCENARIO: scenario },
           encoding: "utf8",
         });
         expect(result.status, `${scenario}: ${result.stderr}`).toBe(status);
@@ -144,6 +144,24 @@ printf '%s\\n' '[[{"tag_name":"aira-v0.0.9","draft":false},{"tag_name":"aira-v99
     }
   });
 
+  test("manual requests preserve source pinning and tag pushes survive the skipped request job", () => {
+    expect(workflow.jobs.request.if).toContain("github.ref == 'refs/heads/master'");
+    const request = workflow.jobs.request.steps.find((step: any) => step.id === "request");
+    expect(request.env.REQUEST_VERSION).toBe("${{ inputs.version }}");
+    expect(request.env.REQUEST_COMMIT).toBe("${{ inputs.source_sha }}");
+    expect(request.run).not.toContain("${{");
+    expect(workflow.jobs.preflight.if).toContain("always()");
+    for (const name of ["build", "publish", "verify"]) {
+      const job = workflow.jobs[name];
+      expect(job.if).toContain("!cancelled()");
+      expect(job.if).toContain("needs.preflight.result == 'success'");
+      const checkout = job.steps.find((step: any) => step.uses?.startsWith("actions/checkout@"));
+      expect(checkout.with.ref).toBe("${{ needs.preflight.outputs.commit }}");
+    }
+    expect(workflow.jobs.publish.if).toContain("needs.build.result == 'success'");
+    expect(workflow.jobs.verify.if).toContain("needs.publish.result == 'success'");
+  });
+
   test("private website deployments stay in the canonical repository", () => {
     const website: any = Bun.YAML.parse(readFileSync(new URL("../.github/workflows/website-deploy.yml", import.meta.url), "utf8"));
     // A job-level gate covers both master pushes and manual dispatches.
@@ -154,8 +172,10 @@ printf '%s\\n' '[[{"tag_name":"aira-v0.0.9","draft":false},{"tag_name":"aira-v99
     expect(website.jobs.trigger.steps[0].run).toContain("exit 1");
   });
 
-  test("only fork tags can publish, and both actors must be fork admins", () => {
-    expect(workflow.on).toEqual({ push: { tags: ["aira-v*"] } });
+  test("only explicit fork release requests can publish, and both actors must be fork admins", () => {
+    expect(workflow.on.push).toEqual({ tags: ["aira-v*"] });
+    expect(workflow.on.workflow_dispatch.inputs.version.required).toBe(true);
+    expect(Object.keys(workflow.on).sort()).toEqual(["push", "workflow_dispatch"]);
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.concurrency).toEqual({ group: "aira-release", "cancel-in-progress": false });
     for (const [name, job] of Object.entries<any>(workflow.jobs)) {
@@ -191,7 +211,7 @@ printf '%s\\n' '[[{"tag_name":"aira-v0.0.9","draft":false},{"tag_name":"aira-v99
     const steps = workflow.jobs.preflight.steps;
     const source = steps.find((step: any) => step.id === "release");
     expect(source.run).toContain("git merge-base --is-ancestor HEAD origin/master");
-    expect(source.run).toContain('git cat-file -t "$GITHUB_REF_NAME"');
+    expect(source.run).toContain('git cat-file -t "$RELEASE_TAG"');
     expect(steps.find((step: any) => step.name === "Install Bun").with["bun-version"]).toBe("1.3.14");
     expect(steps.find((step: any) => step.name === "Run native checks without a Windows SDK").run.trim().split("\n")).toEqual(["just ci", "just docs-contract-test"]);
   });
