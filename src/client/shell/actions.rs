@@ -163,6 +163,16 @@ impl ClientShellState {
                     outcome.repaint = true;
                     return;
                 }
+                if action == crate::input::KeybindAction::EnterTabMode {
+                    self.mode = ClientShellMode::Tab;
+                    outcome.repaint = true;
+                    return;
+                }
+                if action == crate::input::KeybindAction::EnterPaneMode {
+                    self.mode = ClientShellMode::Pane;
+                    outcome.repaint = true;
+                    return;
+                }
                 if action == crate::input::KeybindAction::CopyMode {
                     if self.enter_copy_mode(outcome) {
                         outcome.repaint = true;

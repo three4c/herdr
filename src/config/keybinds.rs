@@ -398,6 +398,8 @@ pub struct Keybinds {
     pub close_pane: ActionKeybinds,
     pub zoom: ActionKeybinds,
     pub resize_mode: ActionKeybinds,
+    pub tab_mode: ActionKeybinds,
+    pub pane_mode: ActionKeybinds,
     pub resize_pane_left: ActionKeybinds,
     pub resize_pane_down: ActionKeybinds,
     pub resize_pane_up: ActionKeybinds,
@@ -581,6 +583,8 @@ impl Config {
             close_pane: empty_action!(),
             zoom: empty_action!(),
             resize_mode: empty_action!(),
+            tab_mode: empty_action!(),
+            pane_mode: empty_action!(),
             resize_pane_left: empty_action!(),
             resize_pane_down: empty_action!(),
             resize_pane_up: empty_action!(),
@@ -729,6 +733,8 @@ impl Config {
             apply_action!(keybinds.close_pane, close_pane, source);
             apply_action!(keybinds.zoom, zoom, source);
             apply_action!(keybinds.resize_mode, resize_mode, source);
+            apply_action!(keybinds.tab_mode, tab_mode, source);
+            apply_action!(keybinds.pane_mode, pane_mode, source);
             apply_action!(keybinds.resize_pane_left, resize_pane_left, source);
             apply_action!(keybinds.resize_pane_down, resize_pane_down, source);
             apply_action!(keybinds.resize_pane_up, resize_pane_up, source);
@@ -2372,8 +2378,16 @@ switch_tab = "prefix+?"
                 KeyModifiers::empty()
             ))]
         );
+        assert!(kb.previous_tab.bindings.is_empty());
         assert_eq!(
-            binding_triggers(&kb.previous_tab),
+            binding_triggers(&kb.tab_mode),
+            vec![BindingTrigger::Prefix((
+                KeyCode::Char('t'),
+                KeyModifiers::empty()
+            ))]
+        );
+        assert_eq!(
+            binding_triggers(&kb.pane_mode),
             vec![BindingTrigger::Prefix((
                 KeyCode::Char('p'),
                 KeyModifiers::empty()

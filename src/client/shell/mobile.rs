@@ -996,7 +996,10 @@ impl ClientShellState {
         if self.mode != ClientShellMode::Navigate {
             if matches!(
                 self.mode,
-                ClientShellMode::Terminal | ClientShellMode::Resize
+                ClientShellMode::Terminal
+                    | ClientShellMode::Resize
+                    | ClientShellMode::Tab
+                    | ClientShellMode::Pane
             ) && mouse.kind == MouseEventKind::Down(MouseButton::Left)
                 && super::contains(self.hits.mobile_switch, point)
             {

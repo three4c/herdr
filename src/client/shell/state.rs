@@ -275,6 +275,8 @@ pub(super) enum ClientShellMode {
     Prefix,
     Navigate,
     Resize,
+    Tab,
+    Pane,
     Copy,
 }
 
@@ -1406,7 +1408,11 @@ impl ClientShellState {
             } else if active_keymap_changed
                 && matches!(
                     self.mode,
-                    ClientShellMode::Prefix | ClientShellMode::Navigate | ClientShellMode::Resize
+                    ClientShellMode::Prefix
+                        | ClientShellMode::Navigate
+                        | ClientShellMode::Resize
+                        | ClientShellMode::Tab
+                        | ClientShellMode::Pane
                 )
             {
                 self.mode = ClientShellMode::Terminal;

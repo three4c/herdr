@@ -392,7 +392,7 @@ pub struct KeysConfig {
     pub new_tab: BindingConfig,
     /// Rename the active tab. Default: "prefix+shift+t".
     pub rename_tab: BindingConfig,
-    /// Select the previous tab. Default: "prefix+p".
+    /// Select the previous tab. Unset by default; tab mode (`prefix+t`) then `h` selects it.
     pub previous_tab: BindingConfig,
     /// Select the next tab. Default: "prefix+n".
     pub next_tab: BindingConfig,
@@ -446,6 +446,10 @@ pub struct KeysConfig {
     pub zoom: BindingConfig,
     /// Enter resize mode. Default: "prefix+r"
     pub resize_mode: BindingConfig,
+    /// Enter tab mode (h/l or k/j switch tabs). Default: "prefix+t"
+    pub tab_mode: BindingConfig,
+    /// Enter pane mode (h/j/k/l move pane focus). Default: "prefix+p"
+    pub pane_mode: BindingConfig,
     /// Resize the focused pane toward the left. Unset by default.
     pub resize_pane_left: BindingConfig,
     /// Resize the focused pane downward. Unset by default.
@@ -583,6 +587,10 @@ pub(crate) struct KeysConfigOverlay {
     #[serde(skip_serializing_if = "Option::is_none")]
     resize_mode: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    tab_mode: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pane_mode: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     resize_pane_left: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     resize_pane_down: Option<BindingConfig>,
@@ -699,6 +707,8 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(close_pane);
         apply_field!(zoom);
         apply_field!(resize_mode);
+        apply_field!(tab_mode);
+        apply_field!(pane_mode);
         apply_field!(resize_pane_left);
         apply_field!(resize_pane_down);
         apply_field!(resize_pane_up);
@@ -804,6 +814,8 @@ impl KeysConfig {
         copy_effective_action_field!(close_pane, keybinds.close_pane);
         copy_effective_action_field!(zoom, keybinds.zoom);
         copy_effective_action_field!(resize_mode, keybinds.resize_mode);
+        copy_effective_action_field!(tab_mode, keybinds.tab_mode);
+        copy_effective_action_field!(pane_mode, keybinds.pane_mode);
         copy_effective_action_field!(resize_pane_left, keybinds.resize_pane_left);
         copy_effective_action_field!(resize_pane_down, keybinds.resize_pane_down);
         copy_effective_action_field!(resize_pane_up, keybinds.resize_pane_up);
@@ -1149,7 +1161,7 @@ impl Default for KeysConfig {
             remote_image_paste: "ctrl+v".into(),
             new_tab: BindingConfig::one("prefix+c"),
             rename_tab: BindingConfig::one("prefix+shift+t"),
-            previous_tab: BindingConfig::one("prefix+p"),
+            previous_tab: BindingConfig::empty(),
             next_tab: BindingConfig::one("prefix+n"),
             move_tab_previous: BindingConfig::empty(),
             move_tab_next: BindingConfig::empty(),
@@ -1176,6 +1188,8 @@ impl Default for KeysConfig {
             close_pane: BindingConfig::one("prefix+x"),
             zoom: BindingConfig::one("prefix+z"),
             resize_mode: BindingConfig::one("prefix+r"),
+            tab_mode: BindingConfig::one("prefix+t"),
+            pane_mode: BindingConfig::one("prefix+p"),
             resize_pane_left: BindingConfig::empty(),
             resize_pane_down: BindingConfig::empty(),
             resize_pane_up: BindingConfig::empty(),
