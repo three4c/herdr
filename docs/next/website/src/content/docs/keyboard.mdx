@@ -39,13 +39,15 @@ Panes:
 | Close pane | `prefix+x` |
 | Swap panes | `prefix+shift+h/j/k/l` |
 | Resize mode | `prefix+r` |
+| Pane mode (keys keep working until `enter`/`esc`) | `prefix+p` |
 | Copy mode | `prefix+[` |
 
 Tabs:
 
 | Action | Key |
 | --- | --- |
-| Next / previous tab | `prefix+n` / `prefix+p` |
+| Next tab | `prefix+n` |
+| Tab mode (`h`/`l` switch tabs until `enter`/`esc`) | `prefix+t` |
 | Jump to tab 1–9 | `prefix+1..9` |
 | Rename tab | `prefix+shift+t` |
 | Close tab | `prefix+shift+x` |
@@ -119,7 +121,7 @@ focus_pane_left = ["prefix+h", "ctrl+alt+h"]
 focus_pane_down = ["prefix+j", "ctrl+alt+j"]
 focus_pane_up = ["prefix+k", "ctrl+alt+k"]
 focus_pane_right = ["prefix+l", "ctrl+alt+l"]
-previous_tab = ["prefix+p", "ctrl+alt+["]
+previous_tab = "ctrl+alt+["
 next_tab = ["prefix+n", "ctrl+alt+]"]
 new_tab = ["prefix+c", "ctrl+alt+c"]
 split_vertical = ["prefix+v", "ctrl+alt+d"]

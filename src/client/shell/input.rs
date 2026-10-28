@@ -721,6 +721,14 @@ impl ClientShellState {
                 self.route_resize_key(key, outcome);
                 None
             }
+            ClientShellMode::Tab => {
+                self.route_tab_mode_key(key, outcome);
+                None
+            }
+            ClientShellMode::Pane => {
+                self.route_pane_mode_key(key, outcome);
+                None
+            }
             ClientShellMode::Copy => {
                 if self
                     .copy_mode
@@ -1066,6 +1074,115 @@ impl ClientShellState {
         };
         if let Some(action) = action {
             self.record_binding(crate::input::KeybindMatch::Action(action), outcome);
+        }
+    }
+
+    fn route_tab_mode_key(
+        &mut self,
+        key: &crate::input::TerminalKey,
+        outcome: &mut ClientShellInput,
+    ) {
+        use crate::input::KeybindAction;
+
+        let movement = match key.code {
+            KeyCode::Char('h') | KeyCode::Char('k') | KeyCode::Left | KeyCode::Up => {
+                Some(KeybindAction::PreviousTab)
+            }
+            KeyCode::Char('l') | KeyCode::Char('j') | KeyCode::Right | KeyCode::Down => {
+                Some(KeybindAction::NextTab)
+            }
+            _ => None,
+        };
+        self.route_scoped_mode_key(key, outcome, movement, |action| {
+            matches!(
+                action,
+                KeybindAction::NewTab
+                    | KeybindAction::RenameTab
+                    | KeybindAction::PreviousTab
+                    | KeybindAction::NextTab
+                    | KeybindAction::SwitchTab(_)
+                    | KeybindAction::MoveTabPrevious
+                    | KeybindAction::MoveTabNext
+                    | KeybindAction::CloseTab
+            )
+        });
+    }
+
+    fn route_pane_mode_key(
+        &mut self,
+        key: &crate::input::TerminalKey,
+        outcome: &mut ClientShellInput,
+    ) {
+        use crate::input::KeybindAction;
+
+        let movement = match key.code {
+            KeyCode::Char('h') | KeyCode::Left => Some(KeybindAction::FocusPaneLeft),
+            KeyCode::Char('j') | KeyCode::Down => Some(KeybindAction::FocusPaneDown),
+            KeyCode::Char('k') | KeyCode::Up => Some(KeybindAction::FocusPaneUp),
+            KeyCode::Char('l') | KeyCode::Right => Some(KeybindAction::FocusPaneRight),
+            _ => None,
+        };
+        self.route_scoped_mode_key(key, outcome, movement, |action| {
+            matches!(
+                action,
+                KeybindAction::RenamePane
+                    | KeybindAction::FocusPaneLeft
+                    | KeybindAction::FocusPaneDown
+                    | KeybindAction::FocusPaneUp
+                    | KeybindAction::FocusPaneRight
+                    | KeybindAction::SwapPaneLeft
+                    | KeybindAction::SwapPaneDown
+                    | KeybindAction::SwapPaneUp
+                    | KeybindAction::SwapPaneRight
+                    | KeybindAction::SplitVertical
+                    | KeybindAction::SplitHorizontal
+                    | KeybindAction::ClosePane
+                    | KeybindAction::EditScrollback
+                    | KeybindAction::ClearPane
+                    | KeybindAction::CopyMode
+                    | KeybindAction::Zoom
+                    | KeybindAction::EnterResizeMode
+                    | KeybindAction::CyclePaneNext
+                    | KeybindAction::CyclePanePrevious
+                    | KeybindAction::LastPane
+            )
+        });
+    }
+
+    /// Sticky Tab/Pane mode: `movement` is the mode's own key, every other key
+    /// reuses the prefix keymap restricted to the actions `in_scope` accepts.
+    fn route_scoped_mode_key(
+        &mut self,
+        key: &crate::input::TerminalKey,
+        outcome: &mut ClientShellInput,
+        movement: Option<crate::input::KeybindAction>,
+        in_scope: fn(crate::input::KeybindAction) -> bool,
+    ) {
+        let keybinds = &self.config.keybinds.keybinds;
+        let own_bindings = match self.mode {
+            ClientShellMode::Tab => &keybinds.tab_mode,
+            _ => &keybinds.pane_mode,
+        };
+        if key.code == KeyCode::Esc
+            || key.code == KeyCode::Enter
+            || own_bindings.matches_prefix_key(key)
+            || own_bindings.matches_direct_key(key)
+        {
+            self.mode = self.copy_or_terminal_mode();
+            outcome.repaint = true;
+            return;
+        }
+
+        if let Some(action) = movement {
+            self.record_binding(crate::input::KeybindMatch::Action(action), outcome);
+            return;
+        }
+        if let Some(binding @ crate::input::KeybindMatch::Action(action)) =
+            crate::input::resolve_prefix_binding(&self.config.keybinds.keybinds, key)
+        {
+            if in_scope(action) {
+                self.record_binding(binding, outcome);
+            }
         }
     }
 

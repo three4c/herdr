@@ -63,11 +63,16 @@ pub(super) fn render_mode_bar(
             ratatui::style::Color::Reset => palette.surface_dim,
             color => color,
         })
-        .bg(if mode == ClientShellMode::Resize {
-            palette.mauve
-        } else {
-            palette.accent
-        })
+        .bg(
+            if matches!(
+                mode,
+                ClientShellMode::Resize | ClientShellMode::Tab | ClientShellMode::Pane
+            ) {
+                palette.mauve
+            } else {
+                palette.accent
+            },
+        )
         .add_modifier(Modifier::BOLD);
     let prefix = keybinds.primary_prefix_label();
     let prefix_rhs = |bindings: &crate::config::ActionKeybinds| {
@@ -92,6 +97,16 @@ pub(super) fn render_mode_bar(
                     (" cancel  ".to_owned(), base),
                     (prefix, key),
                     (" send prefix  ".to_owned(), base),
+                ]);
+                for (bindings, description) in [
+                    (&keybinds.keybinds.pane_mode, " pane  "),
+                    (&keybinds.keybinds.tab_mode, " tab  "),
+                ] {
+                    if let Some(label) = bindings.prefix_rhs_label() {
+                        segments.extend([(label, key), (description.to_owned(), base)]);
+                    }
+                }
+                segments.extend([
                     (prefix_rhs(&keybinds.keybinds.workspace_picker), key),
                     (" workspace nav  ".to_owned(), base),
                     (prefix_rhs(&keybinds.keybinds.help), key),
@@ -121,6 +136,47 @@ pub(super) fn render_mode_bar(
                     ("esc".to_owned(), key),
                     (" done".to_owned(), base),
                 ]);
+            }
+            ClientShellMode::Tab | ClientShellMode::Pane => {
+                let bound = |bindings: &crate::config::ActionKeybinds| bindings.prefix_rhs_label();
+                let fixed = |label: &str| Some(label.to_owned());
+                let kb = &keybinds.keybinds;
+                let (title, hints) = if mode == ClientShellMode::Tab {
+                    (
+                        " TAB ",
+                        [
+                            (fixed("h/l"), "switch"),
+                            (bound(&kb.new_tab), "new"),
+                            (bound(&kb.next_tab), "next"),
+                            (fixed("1-9"), "jump"),
+                            (bound(&kb.rename_tab), "rename"),
+                            (bound(&kb.close_tab), "close"),
+                        ]
+                        .to_vec(),
+                    )
+                } else {
+                    (
+                        " PANE ",
+                        [
+                            (fixed("h/j/k/l"), "move"),
+                            (fixed("shift+h/j/k/l"), "swap"),
+                            (bound(&kb.split_vertical), "split|"),
+                            (bound(&kb.split_horizontal), "split-"),
+                            (bound(&kb.close_pane), "close"),
+                            (bound(&kb.zoom), "zoom"),
+                            (bound(&kb.resize_mode), "resize"),
+                        ]
+                        .to_vec(),
+                    )
+                };
+                segments.extend([(title.to_owned(), mode_style), ("  ".to_owned(), base)]);
+                for (label, description) in hints {
+                    if let Some(label) = label {
+                        segments.push((label, key));
+                        segments.push((format!(" {description}  "), base));
+                    }
+                }
+                segments.extend([("esc".to_owned(), key), (" done".to_owned(), base)]);
             }
             ClientShellMode::Copy => {
                 let copy_mode = copy_mode?;

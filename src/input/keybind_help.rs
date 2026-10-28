@@ -152,6 +152,7 @@ pub(crate) fn keybind_help_groups(
                 entry(indexed_label(&keybinds.focus_agent), "focus agent 1-9"),
                 entry(binding_label(&keybinds.new_tab), "new tab"),
                 entry(binding_label(&keybinds.rename_tab), "rename tab"),
+                entry(binding_label(&keybinds.tab_mode), "tab mode"),
                 entry(binding_label(&keybinds.previous_tab), "previous tab"),
                 entry(binding_label(&keybinds.next_tab), "next tab"),
                 entry(binding_label(&keybinds.move_tab_previous), "move tab left"),
@@ -175,6 +176,7 @@ pub(crate) fn keybind_help_groups(
                 entry(binding_label(&keybinds.copy_mode), "copy mode"),
                 entry(binding_label(&keybinds.zoom), "zoom pane"),
                 entry(binding_label(&keybinds.resize_mode), "resize mode"),
+                entry(binding_label(&keybinds.pane_mode), "pane mode"),
                 entry(
                     binding_label(&keybinds.resize_pane_left),
                     "resize pane left",

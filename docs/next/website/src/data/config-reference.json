@@ -652,8 +652,8 @@
         {
           "key": "keys.previous_tab",
           "type": "keybinding",
-          "default": "\"prefix+p\"",
-          "description": "Select the previous tab."
+          "default": "unset",
+          "description": "Select the previous tab. Unset by default; in tab mode, `h` selects it."
         },
         {
           "key": "keys.next_tab",
@@ -810,6 +810,18 @@
           "type": "keybinding",
           "default": "\"prefix+r\"",
           "description": "Enter resize mode."
+        },
+        {
+          "key": "keys.tab_mode",
+          "type": "keybinding",
+          "default": "\"prefix+t\"",
+          "description": "Enter tab mode. `h`/`k` and `l`/`j` select the previous and next tab, and the tab keys (`c`, `n`, `1`-`9`, rename, close) keep working, until `enter` or `esc`."
+        },
+        {
+          "key": "keys.pane_mode",
+          "type": "keybinding",
+          "default": "\"prefix+p\"",
+          "description": "Enter pane mode. `h`/`j`/`k`/`l` move pane focus, and the pane keys (split, swap, close, zoom, rename) keep working, until `enter` or `esc`."
         },
         {
           "key": "keys.resize_pane_left",

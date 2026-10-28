@@ -39,13 +39,15 @@ Herdr はマウスネイティブです。キーバインドをひとつも覚�
 | ペインを閉じる | `prefix+x` |
 | ペインを入れ替える | `prefix+shift+h/j/k/l` |
 | リサイズモード | `prefix+r` |
+| ペインモード(`enter`/`esc` までキーが使い続けられる) | `prefix+p` |
 | コピーモード | `prefix+[` |
 
 タブ:
 
 | アクション | キー |
 | --- | --- |
-| 次 / 前のタブ | `prefix+n` / `prefix+p` |
+| 次のタブ | `prefix+n` |
+| タブモード(`enter`/`esc` まで `h`/`l` でタブを切り替え) | `prefix+t` |
 | タブ 1–9 にジャンプ | `prefix+1..9` |
 | タブの名前を変更 | `prefix+shift+t` |
 | タブを閉じる | `prefix+shift+x` |
@@ -119,7 +121,7 @@ focus_pane_left = ["prefix+h", "ctrl+alt+h"]
 focus_pane_down = ["prefix+j", "ctrl+alt+j"]
 focus_pane_up = ["prefix+k", "ctrl+alt+k"]
 focus_pane_right = ["prefix+l", "ctrl+alt+l"]
-previous_tab = ["prefix+p", "ctrl+alt+["]
+previous_tab = "ctrl+alt+["
 next_tab = ["prefix+n", "ctrl+alt+]"]
 new_tab = ["prefix+c", "ctrl+alt+c"]
 split_vertical = ["prefix+v", "ctrl+alt+d"]

@@ -967,3 +967,150 @@ fn resize_mode_reuses_endpoint_resize_and_stays_active_until_done() {
     assert!(state.handle_input_bytes(b"\r").actions.is_empty());
     assert_eq!(state.mode, ClientShellMode::Terminal);
 }
+
+#[test]
+fn pane_mode_moves_focus_repeatedly_until_done() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    assert!(state.handle_input_bytes(&[0x02]).actions.is_empty());
+    assert!(state.handle_input_bytes(b"p").actions.is_empty());
+    assert_eq!(state.mode, ClientShellMode::Pane);
+
+    for key in [b"h", b"j", b"k", b"l"] {
+        let outcome = state.handle_input_bytes(key);
+        assert_eq!(outcome.actions.len(), 1, "key {key:?} should move focus");
+        assert_eq!(state.mode, ClientShellMode::Pane);
+    }
+
+    assert!(state.handle_input_bytes(b"\r").actions.is_empty());
+    assert_eq!(state.mode, ClientShellMode::Terminal);
+}
+
+#[test]
+fn tab_mode_switches_tabs_repeatedly_until_done() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    assert!(state.handle_input_bytes(&[0x02]).actions.is_empty());
+    assert!(state.handle_input_bytes(b"t").actions.is_empty());
+    assert_eq!(state.mode, ClientShellMode::Tab);
+
+    for key in [b"l", b"h", b"l"] {
+        let outcome = state.handle_input_bytes(key);
+        assert_eq!(outcome.actions.len(), 1, "key {key:?} should switch tab");
+        assert_eq!(state.mode, ClientShellMode::Tab);
+    }
+
+    assert!(state.handle_input_bytes(b"\x1b").actions.is_empty());
+    assert_eq!(state.mode, ClientShellMode::Terminal);
+}
+
+#[test]
+fn tab_and_pane_modes_reuse_prefix_keys_within_their_scope() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"p");
+    assert_eq!(state.mode, ClientShellMode::Pane);
+    for key in [&b"v"[..], b"-", b"z", b"H"] {
+        let outcome = state.handle_input_bytes(key);
+        assert_eq!(outcome.actions.len(), 1, "pane key {key:?} should run");
+        assert_eq!(state.mode, ClientShellMode::Pane);
+    }
+    for key in [&b"c"[..], b"n", b"1"] {
+        let outcome = state.handle_input_bytes(key);
+        assert!(
+            outcome.actions.is_empty(),
+            "tab key {key:?} is out of scope"
+        );
+        assert_eq!(state.mode, ClientShellMode::Pane);
+    }
+    state.handle_input_bytes(b"\r");
+    assert_eq!(state.mode, ClientShellMode::Terminal);
+
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"t");
+    assert_eq!(state.mode, ClientShellMode::Tab);
+    for key in [&b"c"[..], b"n", b"2"] {
+        let outcome = state.handle_input_bytes(key);
+        assert_eq!(outcome.actions.len(), 1, "tab key {key:?} should run");
+        assert_eq!(state.mode, ClientShellMode::Tab);
+    }
+    for key in [&b"v"[..], b"z", b"H"] {
+        let outcome = state.handle_input_bytes(key);
+        assert!(
+            outcome.actions.is_empty(),
+            "pane key {key:?} is out of scope"
+        );
+        assert_eq!(state.mode, ClientShellMode::Tab);
+    }
+}
+
+#[test]
+fn tab_and_pane_modes_list_their_keys_in_the_status_bar() {
+    let bottom_row = |state: &mut ClientShellState| {
+        let frame = state.compose(120, 30).expect("frame");
+        frame
+            .cells
+            .chunks(frame.width as usize)
+            .last()
+            .expect("bottom row")
+            .iter()
+            .map(|cell| cell.symbol.as_str())
+            .collect::<String>()
+    };
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"p");
+    let pane = bottom_row(&mut state);
+    for expected in [
+        "PANE", "h/j/k/l", "swap", "v split|", "- split-", "x close", "z zoom", "r resize",
+    ] {
+        assert!(pane.contains(expected), "{expected:?} missing in {pane:?}");
+    }
+
+    state.handle_input_bytes(b"\r");
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"t");
+    let tab = bottom_row(&mut state);
+    for expected in [
+        "TAB",
+        "h/l switch",
+        "c new",
+        "n next",
+        "1-9 jump",
+        "shift+t rename",
+        "shift+x close",
+    ] {
+        assert!(tab.contains(expected), "{expected:?} missing in {tab:?}");
+    }
+}
+
+#[test]
+fn prefix_bar_lists_pane_and_tab_modes() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    state.handle_input_bytes(&[0x02]);
+    assert_eq!(state.mode, ClientShellMode::Prefix);
+    let frame = state.compose(120, 30).expect("frame");
+    let bottom_row = frame
+        .cells
+        .chunks(frame.width as usize)
+        .last()
+        .expect("bottom row")
+        .iter()
+        .map(|cell| cell.symbol.as_str())
+        .collect::<String>();
+    assert!(bottom_row.contains("p pane"), "{bottom_row:?}");
+    assert!(bottom_row.contains("t tab"), "{bottom_row:?}");
+}
