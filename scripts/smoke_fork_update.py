@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fork_release import TARGETS, source_number, version_parts
 
-MANIFEST_URL = "https://github.com/three4c/herdr/releases/latest/download/fork-latest.json"
+MANIFEST_URL = "https://github.com/three4c/herdr-aira/releases/latest/download/fork-latest.json"
 
 
 def identity(binary: Path) -> tuple[str, str, str]:
@@ -49,13 +49,13 @@ with open(os.environ["AIRA_SMOKE_REQUESTS"], "a") as log:
 if "-o" in args:
     if os.environ.get("AIRA_SMOKE_FAIL") == "1":
         sys.exit(22)
-    if not url.startswith("https://github.com/three4c/herdr/releases/download/aira-v"):
+    if not url.startswith("https://github.com/three4c/herdr-aira/releases/download/aira-v"):
         sys.exit(99)
     shutil.copyfile(os.environ["AIRA_SMOKE_PAYLOAD"], args[args.index("-o") + 1])
 else:
     if os.environ.get("AIRA_SMOKE_FAIL") == "manifest":
         sys.exit(22)
-    if url != "https://github.com/three4c/herdr/releases/latest/download/fork-latest.json":
+    if url != "https://github.com/three4c/herdr-aira/releases/latest/download/fork-latest.json":
         sys.exit(99)
     sys.stdout.write(Path(os.environ["AIRA_SMOKE_MANIFEST"]).read_text(encoding="utf-8"))
 ''', encoding="utf-8", newline="\n")
@@ -86,13 +86,13 @@ else:
         })
         digest = hashlib.sha256(new.read_bytes()).hexdigest()
         manifest = {
-            "distribution": "three4c/herdr", "release": new_release,
+            "distribution": "three4c/herdr-aira", "release": new_release,
             "version": new_identity, "base_version": new_base,
             "commit": "a" * 40,
             "protocol": source_number(repo_root / "src/protocol/wire.rs", "PROTOCOL_VERSION"),
             "endpoint_generation": source_number(repo_root / "src/protocol/endpoint.rs", "ENDPOINT_PROTOCOL_GENERATION"),
             "notes": "Temporary update smoke test",
-            "assets": {target: f"https://github.com/three4c/herdr/releases/download/aira-v{new_release}/herdr-{target}" for target in TARGETS},
+            "assets": {target: f"https://github.com/three4c/herdr-aira/releases/download/aira-v{new_release}/herdr-{target}" for target in TARGETS},
             "sha256": {target: digest for target in TARGETS},
         }
 
@@ -153,7 +153,7 @@ else:
         assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]
         manifest["release"] = old_release
         manifest["version"] = f"{new_base}-aira.{old_release}"
-        manifest["assets"] = {target: f"https://github.com/three4c/herdr/releases/download/aira-v{old_release}/herdr-{target}" for target in TARGETS}
+        manifest["assets"] = {target: f"https://github.com/three4c/herdr-aira/releases/download/aira-v{old_release}/herdr-{target}" for target in TARGETS}
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8", newline="\n")
         requests.write_text("", encoding="utf-8", newline="\n")
         run("update")

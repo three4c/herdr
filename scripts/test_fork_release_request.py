@@ -17,7 +17,7 @@ COMMIT = "a" * 40
 class ReleaseRequestTests(unittest.TestCase):
     def setUp(self):
         self.env = mock.patch.dict(os.environ, {
-            "GITHUB_REPOSITORY": "three4c/herdr", "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REPOSITORY": "three4c/herdr-aira", "GITHUB_EVENT_NAME": "workflow_dispatch",
             "GITHUB_REF": "refs/heads/master", "GITHUB_SHA": COMMIT,
             "GITHUB_ACTOR": "three4c", "GITHUB_TRIGGERING_ACTOR": "three4c",
         })

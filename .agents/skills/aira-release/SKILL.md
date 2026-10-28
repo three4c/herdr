@@ -1,13 +1,13 @@
 ---
 name: aira-release
-description: Choose the next Aira fork version from released-to-master changes and start an explicitly requested three4c/herdr release. Use for Aira version selection or publication, not upstream Herdr releases.
+description: Choose the next Aira fork version from released-to-master changes and start an explicitly requested three4c/herdr-aira release. Use for Aira version selection or publication, not upstream Herdr releases.
 ---
 
 # Aira release
 
 This personal fork has an independent version, tags `aira-vX.Y.Z`, and the
 installed command `herdr-aira`. Cargo retains the upstream Herdr base version.
-Use only `three4c/herdr`; never run upstream `just release` or `just preview`.
+Use only `three4c/herdr-aira`; never run upstream `just release` or `just preview`.
 
 ## Decide the version
 
@@ -41,7 +41,7 @@ because Actions will create a tag and publish the approved fork.
 After an explicit release request, use the existing workflow:
 
 ```sh
-gh workflow run fork-release.yml --repo three4c/herdr --ref master \
+gh workflow run fork-release.yml --repo three4c/herdr-aira --ref master \
   -f version="<selected-version>" -f source_sha="<reviewed-full-master-sha>"
 ```
 

@@ -333,14 +333,14 @@ impl ReleaseInfo {
 
 fn fetch_update_manifest() -> Result<UpdateManifest, String> {
     if crate::build_info::is_fork() {
-        return Err("upstream update manifests are disabled for three4c/herdr".into());
+        return Err("upstream update manifests are disabled for three4c/herdr-aira".into());
     }
     fetch_json_manifest(STABLE_UPDATE_MANIFEST_URL)
 }
 
 fn fetch_preview_manifest() -> Result<PreviewManifest, String> {
     if crate::build_info::is_fork() {
-        return Err("preview updates are disabled for three4c/herdr".into());
+        return Err("preview updates are disabled for three4c/herdr-aira".into());
     }
     fetch_json_manifest(PREVIEW_UPDATE_MANIFEST_URL)
 }
@@ -673,7 +673,7 @@ fn homebrew_update_from_formula_json(
 
 fn check_homebrew_latest() -> Result<Option<Version>, String> {
     if crate::build_info::is_fork() {
-        return Err("Homebrew updates are disabled for three4c/herdr".into());
+        return Err("Homebrew updates are disabled for three4c/herdr-aira".into());
     }
     let current = Version::current();
 
@@ -2253,12 +2253,12 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
         let (os, arch) = platform_target();
         if !crate::fork_distribution::TARGETS.contains(&format!("{os}-{arch}").as_str()) {
             return Err(
-                "three4c/herdr releases support only macOS and Linux on x86_64/aarch64".into(),
+                "three4c/herdr-aira releases support only macOS and Linux on x86_64/aarch64".into(),
             );
         }
         let executable = env::current_exe().map_err(|error| error.to_string())?;
         if is_package_manager_managed_exe_path(&executable) {
-            return Err("Install three4c/herdr in a standalone directory with the fork installer before using self-update".into());
+            return Err("Install three4c/herdr-aira in a standalone directory with the fork installer before using self-update".into());
         }
     }
     let channel = UpdateChannel::configured();
@@ -2688,7 +2688,7 @@ mod channel_tests {
         assert_eq!(release.label(), "0.9.5-aira.0.1.10");
         assert!(release
             .download_url
-            .starts_with("https://github.com/three4c/herdr/"));
+            .starts_with("https://github.com/three4c/herdr-aira/"));
         assert!(release.sha256.is_some());
         assert!(
             release_info_from_fork_manifest(&manifest, installed("0.1.10"))

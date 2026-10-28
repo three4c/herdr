@@ -1,6 +1,6 @@
-# Aira distribution for three4c/herdr
+# Aira distribution for three4c/herdr-aira
 
-Aira is the personal fork of Herdr in `three4c/herdr`. The installed command is
+Aira is the personal fork of Herdr in `three4c/herdr-aira`. The installed command is
 `herdr-aira`, alongside upstream `herdr`. The repository, Cargo package, build
 output, and Release asset names retain `herdr`. Upstream release workflows,
 manifests, package versions, settings, saved sessions, and public protocols are
@@ -19,7 +19,7 @@ installer: it installs upstream Herdr.
 Run this single line in a POSIX-compatible shell (including bash or zsh):
 
 ```sh
-curl -fsSL https://github.com/three4c/herdr/releases/latest/download/install.sh | sh && export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL https://github.com/three4c/herdr-aira/releases/latest/download/install.sh | sh && export PATH="$HOME/.local/bin:$PATH"
 ```
 
 Then run:
@@ -41,7 +41,7 @@ shell; the installer does not edit shell configuration. It warns when an existin
 `herdr-aira` elsewhere in PATH would shadow the fork. To choose another destination:
 
 ```sh
-curl -fsSL https://github.com/three4c/herdr/releases/latest/download/install.sh | HERDR_INSTALL_DIR="$HOME/bin" sh
+curl -fsSL https://github.com/three4c/herdr-aira/releases/latest/download/install.sh | HERDR_INSTALL_DIR="$HOME/bin" sh
 ```
 
 Installation replaces only `herdr-aira` at the selected destination after
@@ -69,10 +69,10 @@ The installer and the application's foreground/background update checks both
 fetch:
 
 ```text
-https://github.com/three4c/herdr/releases/latest/download/fork-latest.json
+https://github.com/three4c/herdr-aira/releases/latest/download/fork-latest.json
 ```
 
-The manifest identifies `three4c/herdr`, contains the base version, Aira
+The manifest identifies `three4c/herdr-aira`, contains the base version, Aira
 version, source commit, existing protocol/generation values, four pinned binary
 URLs, and SHA-256 checksums. Both clients reject binaries from another repository
 or another release. Application updates compare Aira major/minor/patch
@@ -138,7 +138,7 @@ After this workflow change is merged, start a release from the Actions page on
 `master` with `version`, or use the following example (replace both values):
 
 ```sh
-gh workflow run fork-release.yml --repo three4c/herdr --ref master \
+gh workflow run fork-release.yml --repo three4c/herdr-aira --ref master \
   -f version=0.1.1 -f source_sha="<reviewed-full-master-sha>"
 ```
 

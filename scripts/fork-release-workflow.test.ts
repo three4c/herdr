@@ -40,7 +40,7 @@ if args[0] == "api":
     print(json.dumps([[{"tag_name": "aira-v0.2.0", "draft": False}] if scenario == "newer" else []]))
     sys.exit(0)
 assert args[:1] == ["release"]
-assert args[args.index("--repo") + 1] == "three4c/herdr"
+assert args[args.index("--repo") + 1] == "three4c/herdr-aira"
 assert args[2] == "aira-v0.1.0"
 action = args[1]
 if action == "view":
@@ -67,7 +67,7 @@ else:
       chmodSync(join(dir, "gh"), 0o700);
       const preflight = spawnSync("bash", ["-euo", "pipefail", "-c", workflow.jobs.preflight.steps.find((step: any) => step.id === "release").run], {
         cwd: dir,
-        env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", RELEASE_TAG: "aira-v0.1.0", GITHUB_OUTPUT: join(dir, "github-output"), AIRA_TEST_SCENARIO: "new" },
+        env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr-aira", RELEASE_TAG: "aira-v0.1.0", GITHUB_OUTPUT: join(dir, "github-output"), AIRA_TEST_SCENARIO: "new" },
         encoding: "utf8",
       });
       expect(preflight.status, preflight.stderr).toBe(0);
@@ -86,7 +86,7 @@ else:
         rmSync(join(dir, "created-notes.txt"), { force: true });
         const result = spawnSync("bash", ["-euo", "pipefail", "-c", script], {
           cwd: dir,
-          env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", RELEASE_TAG: "aira-v0.1.0", AIRA_TEST_SCENARIO: scenario },
+          env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr-aira", RELEASE_TAG: "aira-v0.1.0", AIRA_TEST_SCENARIO: scenario },
           encoding: "utf8",
         });
         expect(result.status, `${scenario}: ${result.stderr}`).toBe(status);
@@ -131,7 +131,7 @@ printf '%s\\n' '[[{"tag_name":"aira-v0.0.9","draft":false},{"tag_name":"aira-v99
         while (end < lines.length && !lines[end].includes('> "$RUNNER_TEMP/published.json"')) end++;
         expect(end).toBeLessThan(lines.length);
         const command = lines.slice(start, end + 1).join("\n");
-        const env = { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr", AIRA_TEST_GH_FAIL: "" };
+        const env = { ...process.env, PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, GITHUB_REPOSITORY: "three4c/herdr-aira", AIRA_TEST_GH_FAIL: "" };
         const result = spawnSync("bash", ["-euo", "pipefail", "-c", command], { env, encoding: "utf8" });
         expect(result.stderr).toBe("");
         expect(result.status).toBe(0);
@@ -179,9 +179,9 @@ printf '%s\\n' '[[{"tag_name":"aira-v0.0.9","draft":false},{"tag_name":"aira-v99
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.concurrency).toEqual({ group: "aira-release", "cancel-in-progress": false });
     for (const [name, job] of Object.entries<any>(workflow.jobs)) {
-      expect(job.if).toContain("github.repository == 'three4c/herdr'");
+      expect(job.if).toContain("github.repository == 'three4c/herdr-aira'");
       if (name === "build") continue;
-      expect(job.steps[0].run).toContain('test "$GITHUB_REPOSITORY" = "three4c/herdr"');
+      expect(job.steps[0].run).toContain('test "$GITHUB_REPOSITORY" = "three4c/herdr-aira"');
       expect(job.steps[0].run).toContain('"$GITHUB_ACTOR" "$GITHUB_TRIGGERING_ACTOR"');
       expect(job.steps[0].run).toContain('test "$permission" = admin');
     }

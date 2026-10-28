@@ -160,10 +160,10 @@ fn api_group(name: &str) -> Option<clap::Command> {
 fn run_channel_command(args: &[String]) -> std::io::Result<i32> {
     if crate::build_info::is_fork() {
         if args.first().map(String::as_str) == Some("show") && args.len() == 1 {
-            println!("aira (three4c/herdr)");
+            println!("aira (three4c/herdr-aira)");
             return Ok(0);
         }
-        eprintln!("This fork uses only three4c/herdr releases. Channel switching is disabled; run `herdr-aira update`.");
+        eprintln!("This fork uses only three4c/herdr-aira releases. Channel switching is disabled; run `herdr-aira update`.");
         return Ok(1);
     }
     match args.first().map(|arg| arg.as_str()) {

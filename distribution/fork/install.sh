@@ -3,11 +3,11 @@
 set -eu
 
 BIN="herdr-aira"
-MANIFEST_URL="https://github.com/three4c/herdr/releases/latest/download/fork-latest.json"
+MANIFEST_URL="https://github.com/three4c/herdr-aira/releases/latest/download/fork-latest.json"
 INSTALL_DIR="${HERDR_INSTALL_DIR:-$HOME/.local/bin}"
 
 main() {
-    log "Aira installer (three4c/herdr)"
+    log "Aira installer (three4c/herdr-aira)"
 
     # detect platform
     OS="$(uname -s)"
@@ -18,7 +18,7 @@ main() {
     esac
 
     if [ "$OS" = "Linux" ] && [ "$(uname -o 2>/dev/null || true)" = "Android" ]; then
-        err "Android/Termux is not currently supported by Herdr release binaries. SSH to a supported host instead: https://github.com/three4c/herdr"
+        err "Android/Termux is not currently supported by Herdr release binaries. SSH to a supported host instead: https://github.com/three4c/herdr-aira"
     fi
 
     ARCH="$(uname -m)"
@@ -65,13 +65,13 @@ main() {
     DISTRIBUTION="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"distribution"[[:space:]]*:/ { print $4; exit }')"
     RELEASE="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"release"[[:space:]]*:/ { print $4; exit }')"
     BASE_VERSION="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"base_version"[[:space:]]*:/ { print $4; exit }')"
-    [ "$DISTRIBUTION" = "three4c/herdr" ] || err "invalid fork distribution"
+    [ "$DISTRIBUTION" = "three4c/herdr-aira" ] || err "invalid fork distribution"
     valid_version "$RELEASE" || err "invalid fork release version"
     [ "$RELEASE" != "0.0.0" ] || err "local builds cannot be installed as releases"
     valid_version "$BASE_VERSION" || err "invalid fork base version"
     [ "$VERSION" = "${BASE_VERSION}-aira.${RELEASE}" ] || err "invalid fork version identity"
-    EXPECTED_URL="https://github.com/three4c/herdr/releases/download/aira-v${RELEASE}/herdr-${TARGET}"
-    [ "$URL" = "$EXPECTED_URL" ] || err "binary URL must belong to the matching three4c/herdr release"
+    EXPECTED_URL="https://github.com/three4c/herdr-aira/releases/download/aira-v${RELEASE}/herdr-${TARGET}"
+    [ "$URL" = "$EXPECTED_URL" ] || err "binary URL must belong to the matching three4c/herdr-aira release"
 
     if [ -z "$URL" ]; then
         err "release manifest does not include a binary for ${TARGET}"
@@ -160,7 +160,7 @@ err()  { printf '  \033[31m✗\033[0m %s\n' "$1" >&2; exit 1; }
 
 need() {
     if ! command -v "$1" >/dev/null 2>&1; then
-        err "requires '$1' — install it first, or download a binary manually from https://github.com/three4c/herdr/releases"
+        err "requires '$1' — install it first, or download a binary manually from https://github.com/three4c/herdr-aira/releases"
     fi
 }
 

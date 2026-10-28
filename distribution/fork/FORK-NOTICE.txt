@@ -1,4 +1,4 @@
-Aira is a personal modified fork of Herdr, maintained in three4c/herdr.
+Aira is a personal modified fork of Herdr, maintained in three4c/herdr-aira.
 Herdr's original authors and contributors retain their copyrights.
 Herdr and the Aira modifications are provided under Apache License 2.0.
 This fork is not an official Herdr release or an endorsement by its authors.
@@ -9,7 +9,7 @@ identity, and bundled license notices. Modified source files carry Aira
 change notices; the corresponding Git history records the individual changes.
 
 Upstream: https://github.com/herdrdev/herdr
-Fork source: https://github.com/three4c/herdr
+Fork source: https://github.com/three4c/herdr-aira
 
 Use `herdr-aira --licenses` to display the bundled Herdr license, this notice,
 and the preserved third-party license texts without a network connection.

@@ -2754,7 +2754,7 @@ fn preview_assets_for_build<'a>(
 fn remote_release_asset(asset_key: &str) -> io::Result<RemoteReleaseAsset> {
     if crate::build_info::is_fork() {
         return Err(io::Error::other(
-            "Automatic cross-platform remote installation is disabled for three4c/herdr; install the fork on the remote host manually or set HERDR_REMOTE_BINARY to a matching fork binary",
+            "Automatic cross-platform remote installation is disabled for three4c/herdr-aira; install the fork on the remote host manually or set HERDR_REMOTE_BINARY to a matching fork binary",
         ));
     }
     if crate::build_info::is_preview() {
@@ -3689,7 +3689,9 @@ mod tests {
     fn fork_remote_install_never_fetches_upstream_releases() {
         for target in ["linux-x86_64", "macos-aarch64", "windows-x86_64"] {
             let error = remote_release_asset(target).err().expect("fork guard");
-            assert!(error.to_string().contains("disabled for three4c/herdr"));
+            assert!(error
+                .to_string()
+                .contains("disabled for three4c/herdr-aira"));
         }
     }
 
