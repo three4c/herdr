@@ -400,6 +400,7 @@ pub struct Keybinds {
     pub resize_mode: ActionKeybinds,
     pub tab_mode: ActionKeybinds,
     pub pane_mode: ActionKeybinds,
+    pub session_mode: ActionKeybinds,
     pub resize_pane_left: ActionKeybinds,
     pub resize_pane_down: ActionKeybinds,
     pub resize_pane_up: ActionKeybinds,
@@ -585,6 +586,7 @@ impl Config {
             resize_mode: empty_action!(),
             tab_mode: empty_action!(),
             pane_mode: empty_action!(),
+            session_mode: empty_action!(),
             resize_pane_left: empty_action!(),
             resize_pane_down: empty_action!(),
             resize_pane_up: empty_action!(),
@@ -735,6 +737,7 @@ impl Config {
             apply_action!(keybinds.resize_mode, resize_mode, source);
             apply_action!(keybinds.tab_mode, tab_mode, source);
             apply_action!(keybinds.pane_mode, pane_mode, source);
+            apply_action!(keybinds.session_mode, session_mode, source);
             apply_action!(keybinds.resize_pane_left, resize_pane_left, source);
             apply_action!(keybinds.resize_pane_down, resize_pane_down, source);
             apply_action!(keybinds.resize_pane_up, resize_pane_up, source);
@@ -2391,6 +2394,13 @@ switch_tab = "prefix+?"
             vec![BindingTrigger::Prefix((
                 KeyCode::Char('p'),
                 KeyModifiers::empty()
+            ))]
+        );
+        assert_eq!(
+            binding_triggers(&kb.session_mode),
+            vec![BindingTrigger::Prefix((
+                KeyCode::Char('s'),
+                KeyModifiers::SHIFT
             ))]
         );
         assert_eq!(kb.switch_tab.len(), 9);

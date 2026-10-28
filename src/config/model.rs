@@ -450,6 +450,8 @@ pub struct KeysConfig {
     pub tab_mode: BindingConfig,
     /// Enter pane mode (h/j/k/l move pane focus). Default: "prefix+p"
     pub pane_mode: BindingConfig,
+    /// Enter session mode (settings, reload, help, goto, sidebar, detach). Default: "prefix+shift+s"
+    pub session_mode: BindingConfig,
     /// Resize the focused pane toward the left. Unset by default.
     pub resize_pane_left: BindingConfig,
     /// Resize the focused pane downward. Unset by default.
@@ -591,6 +593,8 @@ pub(crate) struct KeysConfigOverlay {
     #[serde(skip_serializing_if = "Option::is_none")]
     pane_mode: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    session_mode: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     resize_pane_left: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     resize_pane_down: Option<BindingConfig>,
@@ -709,6 +713,7 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(resize_mode);
         apply_field!(tab_mode);
         apply_field!(pane_mode);
+        apply_field!(session_mode);
         apply_field!(resize_pane_left);
         apply_field!(resize_pane_down);
         apply_field!(resize_pane_up);
@@ -816,6 +821,7 @@ impl KeysConfig {
         copy_effective_action_field!(resize_mode, keybinds.resize_mode);
         copy_effective_action_field!(tab_mode, keybinds.tab_mode);
         copy_effective_action_field!(pane_mode, keybinds.pane_mode);
+        copy_effective_action_field!(session_mode, keybinds.session_mode);
         copy_effective_action_field!(resize_pane_left, keybinds.resize_pane_left);
         copy_effective_action_field!(resize_pane_down, keybinds.resize_pane_down);
         copy_effective_action_field!(resize_pane_up, keybinds.resize_pane_up);
@@ -1190,6 +1196,7 @@ impl Default for KeysConfig {
             resize_mode: BindingConfig::one("prefix+r"),
             tab_mode: BindingConfig::one("prefix+t"),
             pane_mode: BindingConfig::one("prefix+p"),
+            session_mode: BindingConfig::one("prefix+shift+s"),
             resize_pane_left: BindingConfig::empty(),
             resize_pane_down: BindingConfig::empty(),
             resize_pane_up: BindingConfig::empty(),

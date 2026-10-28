@@ -191,6 +191,7 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # resize_mode = "prefix+r"
 # tab_mode = "prefix+t"   # h/l switch tabs until esc
 # pane_mode = "prefix+p"  # h/j/k/l move pane focus until esc
+# session_mode = "prefix+shift+s"  # settings, reload, help, goto, sidebar, detach
 # resize_pane_left = ""   # optional, e.g. "ctrl+shift+alt+left" resizes without entering resize mode
 # resize_pane_down = ""   # optional, e.g. "ctrl+shift+alt+down"
 # resize_pane_up = ""     # optional, e.g. "ctrl+shift+alt+up"

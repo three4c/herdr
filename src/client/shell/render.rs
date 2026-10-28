@@ -66,7 +66,10 @@ pub(super) fn render_mode_bar(
         .bg(
             if matches!(
                 mode,
-                ClientShellMode::Resize | ClientShellMode::Tab | ClientShellMode::Pane
+                ClientShellMode::Resize
+                    | ClientShellMode::Tab
+                    | ClientShellMode::Pane
+                    | ClientShellMode::Session
             ) {
                 palette.mauve
             } else {
@@ -74,7 +77,6 @@ pub(super) fn render_mode_bar(
             },
         )
         .add_modifier(Modifier::BOLD);
-    let prefix = keybinds.primary_prefix_label();
     let prefix_rhs = |bindings: &crate::config::ActionKeybinds| {
         bindings
             .prefix_rhs_label()
@@ -94,21 +96,18 @@ pub(super) fn render_mode_bar(
                     (" PREFIX ".to_owned(), mode_style),
                     (" ".to_owned(), base),
                     ("esc".to_owned(), key),
-                    (" cancel  ".to_owned(), base),
-                    (prefix, key),
-                    (" send prefix  ".to_owned(), base),
+                    (" exit  ".to_owned(), base),
                 ]);
                 for (bindings, description) in [
                     (&keybinds.keybinds.pane_mode, " pane  "),
                     (&keybinds.keybinds.tab_mode, " tab  "),
+                    (&keybinds.keybinds.session_mode, " session  "),
                 ] {
                     if let Some(label) = bindings.prefix_rhs_label() {
                         segments.extend([(label, key), (description.to_owned(), base)]);
                     }
                 }
                 segments.extend([
-                    (prefix_rhs(&keybinds.keybinds.workspace_picker), key),
-                    (" workspace nav  ".to_owned(), base),
                     (prefix_rhs(&keybinds.keybinds.help), key),
                     (" keybinds".to_owned(), base),
                 ]);
@@ -116,7 +115,9 @@ pub(super) fn render_mode_bar(
             ClientShellMode::Navigate => {
                 segments.extend([
                     (" NAVIGATE ".to_owned(), mode_style),
-                    (" esc back  ".to_owned(), base),
+                    (" ".to_owned(), base),
+                    ("esc".to_owned(), key),
+                    (" exit  ".to_owned(), base),
                     ("↑/↓".to_owned(), key),
                     (" workspace  ".to_owned(), base),
                     ("tab".to_owned(), key),
@@ -128,13 +129,13 @@ pub(super) fn render_mode_bar(
             ClientShellMode::Resize => {
                 segments.extend([
                     (" RESIZE ".to_owned(), mode_style),
-                    ("  ".to_owned(), base),
+                    (" ".to_owned(), base),
+                    ("esc".to_owned(), key),
+                    (" exit  ".to_owned(), base),
                     ("h/l".to_owned(), key),
                     (" width  ".to_owned(), base),
                     ("j/k".to_owned(), key),
-                    (" height  ".to_owned(), base),
-                    ("esc".to_owned(), key),
-                    (" done".to_owned(), base),
+                    (" height".to_owned(), base),
                 ]);
             }
             ClientShellMode::Tab | ClientShellMode::Pane => {
@@ -169,14 +170,42 @@ pub(super) fn render_mode_bar(
                         .to_vec(),
                     )
                 };
-                segments.extend([(title.to_owned(), mode_style), ("  ".to_owned(), base)]);
+                segments.extend([
+                    (title.to_owned(), mode_style),
+                    (" ".to_owned(), base),
+                    ("esc".to_owned(), key),
+                    (" exit  ".to_owned(), base),
+                ]);
                 for (label, description) in hints {
                     if let Some(label) = label {
                         segments.push((label, key));
                         segments.push((format!(" {description}  "), base));
                     }
                 }
-                segments.extend([("esc".to_owned(), key), (" done".to_owned(), base)]);
+            }
+            ClientShellMode::Session => {
+                let kb = &keybinds.keybinds;
+                let hints = [
+                    (&kb.settings, "settings"),
+                    (&kb.reload_config, "reload"),
+                    (&kb.help, "keybinds"),
+                    (&kb.goto, "goto"),
+                    (&kb.open_notification_target, "notify"),
+                    (&kb.toggle_sidebar, "sidebar"),
+                    (&kb.detach, "detach"),
+                ];
+                segments.extend([
+                    (" SESSION ".to_owned(), mode_style),
+                    (" ".to_owned(), base),
+                    ("esc".to_owned(), key),
+                    (" exit  ".to_owned(), base),
+                ]);
+                for (bindings, description) in hints {
+                    if let Some(label) = bindings.prefix_rhs_label() {
+                        segments.push((label, key));
+                        segments.push((format!(" {description}  "), base));
+                    }
+                }
             }
             ClientShellMode::Copy => {
                 let copy_mode = copy_mode?;

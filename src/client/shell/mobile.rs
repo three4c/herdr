@@ -1000,6 +1000,7 @@ impl ClientShellState {
                     | ClientShellMode::Resize
                     | ClientShellMode::Tab
                     | ClientShellMode::Pane
+                    | ClientShellMode::Session
             ) && mouse.kind == MouseEventKind::Down(MouseButton::Left)
                 && super::contains(self.hits.mobile_switch, point)
             {

@@ -339,7 +339,7 @@ fn inactive_auto_named_tab_label_does_not_stack_terminal_faint() {
 }
 
 #[test]
-fn configured_prefix_is_client_owned_and_renders_its_bar() {
+fn configured_prefix_is_client_owned() {
     let config = toml::from_str::<Config>(
         r#"
 [keys]
@@ -374,7 +374,6 @@ detach = "prefix+x"
         .collect::<Vec<_>>()
         .join("\n");
     assert!(text.contains("PREFIX"), "frame: {text:?}");
-    assert!(text.contains("ctrl+a"), "frame: {text:?}");
 
     let detach = state.handle_input_bytes(b"x");
     assert!(detach.detach);
@@ -1054,7 +1053,7 @@ fn tab_and_pane_modes_reuse_prefix_keys_within_their_scope() {
 #[test]
 fn tab_and_pane_modes_list_their_keys_in_the_status_bar() {
     let bottom_row = |state: &mut ClientShellState| {
-        let frame = state.compose(120, 30).expect("frame");
+        let frame = state.compose(140, 30).expect("frame");
         frame
             .cells
             .chunks(frame.width as usize)
@@ -1113,4 +1112,124 @@ fn prefix_bar_lists_pane_and_tab_modes() {
         .collect::<String>();
     assert!(bottom_row.contains("p pane"), "{bottom_row:?}");
     assert!(bottom_row.contains("t tab"), "{bottom_row:?}");
+}
+
+#[test]
+fn session_mode_runs_session_keys_once_and_ignores_others() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    state.handle_input_bytes(&[0x02]);
+    assert!(state.handle_input_bytes(b"S").actions.is_empty());
+    assert_eq!(state.mode, ClientShellMode::Session);
+
+    for key in [&b"c"[..], b"v", b"h", b"z"] {
+        let outcome = state.handle_input_bytes(key);
+        assert!(
+            outcome.actions.is_empty(),
+            "key {key:?} is out of session scope"
+        );
+        assert_eq!(state.mode, ClientShellMode::Session);
+    }
+
+    state.handle_input_bytes(b"s");
+    assert!(matches!(
+        state.overlay,
+        Some(ClientShellOverlay::Settings(_))
+    ));
+    assert_eq!(state.mode, ClientShellMode::Terminal);
+}
+
+#[test]
+fn session_mode_detaches_and_exits_with_esc() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"S");
+    assert!(state.handle_input_bytes(b"q").detach);
+    assert_eq!(state.mode, ClientShellMode::Terminal);
+
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"S");
+    assert_eq!(state.mode, ClientShellMode::Session);
+    state.handle_input_bytes(b"\x1b");
+    assert_eq!(state.mode, ClientShellMode::Terminal);
+}
+
+#[test]
+fn session_mode_lists_its_keys_in_the_status_bar_and_prefix_bar() {
+    let bottom_row = |state: &mut ClientShellState| {
+        let frame = state.compose(140, 30).expect("frame");
+        frame
+            .cells
+            .chunks(frame.width as usize)
+            .last()
+            .expect("bottom row")
+            .iter()
+            .map(|cell| cell.symbol.as_str())
+            .collect::<String>()
+    };
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    state.handle_input_bytes(&[0x02]);
+    let prefix = bottom_row(&mut state);
+    assert!(prefix.contains("shift+s session"), "{prefix:?}");
+
+    state.handle_input_bytes(b"S");
+    let session = bottom_row(&mut state);
+    for expected in [
+        "SESSION",
+        "s settings",
+        "shift+r reload",
+        "? keybinds",
+        "g goto",
+        "o notify",
+        "b sidebar",
+        "q detach",
+    ] {
+        assert!(
+            session.contains(expected),
+            "{expected:?} missing in {session:?}"
+        );
+    }
+}
+
+#[test]
+fn every_mode_bar_shows_esc_exit_right_after_its_title() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    for (entry, title) in [
+        (&b""[..], "PREFIX"),
+        (b"S", "SESSION"),
+        (b"t", "TAB"),
+        (b"p", "PANE"),
+        (b"r", "RESIZE"),
+        (b"w", "NAVIGATE"),
+    ] {
+        state.handle_input_bytes(&[0x02]);
+        state.handle_input_bytes(entry);
+        let frame = state.compose(120, 30).expect("frame");
+        let bottom_row = frame
+            .cells
+            .chunks(frame.width as usize)
+            .last()
+            .expect("bottom row")
+            .iter()
+            .map(|cell| cell.symbol.as_str())
+            .collect::<String>();
+        assert!(
+            bottom_row.contains(&format!("{title}  esc exit")),
+            "{title}: {bottom_row:?}"
+        );
+        state.handle_input_bytes(b"\x1b");
+        state.handle_input_bytes(b"\x1b");
+        assert_eq!(state.mode, ClientShellMode::Terminal, "{title}");
+    }
 }

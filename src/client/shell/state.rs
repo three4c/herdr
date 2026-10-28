@@ -277,6 +277,7 @@ pub(super) enum ClientShellMode {
     Resize,
     Tab,
     Pane,
+    Session,
     Copy,
 }
 
@@ -1413,6 +1414,7 @@ impl ClientShellState {
                         | ClientShellMode::Resize
                         | ClientShellMode::Tab
                         | ClientShellMode::Pane
+                        | ClientShellMode::Session
                 )
             {
                 self.mode = ClientShellMode::Terminal;
