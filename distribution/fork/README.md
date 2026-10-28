@@ -72,10 +72,11 @@ fetch:
 https://github.com/three4c/herdr/releases/latest/download/fork-latest.json
 ```
 
-The manifest identifies `three4c/herdr`, contains the base version, release
-number, source commit, existing protocol/generation values, four pinned binary
+The manifest identifies `three4c/herdr`, contains the base version, Aira
+version, source commit, existing protocol/generation values, four pinned binary
 URLs, and SHA-256 checksums. Both clients reject binaries from another repository
-or another release. Application updates ignore equal or older release numbers.
+or another release. Application updates compare Aira major/minor/patch
+numerically and ignore equal or older versions.
 There is no fallback to upstream metadata or binaries if a request fails.
 
 `herdr-aira channel show` reports `aira`. All channel switching is disabled,
@@ -98,22 +99,33 @@ catalog updates remain independent from binary distribution.
 
 ## Version identity
 
-For example, a base `Cargo.toml` version of `0.9.5` and release number `12` produce:
+Aira uses its own major/minor/patch version, independently of the upstream
+Herdr version. For a base `Cargo.toml` version of `0.9.5` and Aira `0.1.0`:
 
 ```text
-CLI: herdr 0.9.5-aira.12
-Tag: aira-v12
+Aira version: 0.1.0
+Herdr base: 0.9.5
+CLI: herdr 0.9.5-aira.0.1.0
+Tag: aira-v0.1.0
 ```
 
-`herdr-aira --version` retains the `herdr` product prefix shown above; the
-installed command remains `herdr-aira`.
+`herdr-aira --version` retains the Herdr base and product prefix for provenance;
+the installed command remains `herdr-aira`. The update decision uses only the
+Aira version: `0.1.9` < `0.1.10` < `0.2.0` < `1.0.0`, regardless of the base.
 
-Increment the release number globally, including when adopting a new upstream
-base: `0.9.5-aira.12` → `0.9.6-aira.13`. Do not reset it on an upstream version
-change. Updates compare this number, rather than generic SemVer ordering of the
-suffix. `Cargo.toml` and `Cargo.lock` retain the upstream base version. Local
-builds default to `-aira.0`, which is never publishable; every source build in
-this fork uses the fork update source, even without CI environment variables.
+Use patch releases for fixes, minor releases for new features, and major
+releases when deliberately changing compatibility. Upstream updates do not
+force Aira to adopt the upstream version number. For example, a release based
+on Herdr `0.9.6` can be Aira `0.1.1`. Do not reset Aira's version on a base update.
+Only stable three-part versions are supported; prerelease/build suffixes and
+leading zeroes are rejected. Each component must fit an unsigned 32-bit integer.
+
+`Cargo.toml` and `Cargo.lock` retain the upstream base version. Local builds
+default to Aira `0.0.0`, which is never publishable. Set `HERDR_FORK_VERSION` to
+build a specific Aira identity. Every source build uses the fork update source.
+The retired integer-release experiment (`aira-v1` / `aira-v2`) is not supported;
+there were no installed users to migrate. Published releases begin at
+`aira-v0.1.0`.
 
 ## Publish a release
 
@@ -131,21 +143,23 @@ This procedure operates only on `three4c/herdr`. Do not run the upstream
    and the intended changes are included. Run `just ci`,
    `just docs-contract-test`, and `just fork-distribution-test` with Bun 1.3.14
    and Python 3.11 or newer. No Windows SDK is required for these checks.
-3. Choose a number greater than every published `aira-v<N>` release. For the
-   first release use `1`. Create an annotated tag and push that specific tag:
+3. Choose an Aira version greater than every published `aira-v<major.minor.patch>`
+   release. The first release is `0.1.0`. Create an annotated tag and push that
+   specific tag:
 
    ```sh
    git fetch origin master --tags
-   git tag -a aira-v1 origin/master -m "release: aira v1"
-   git push origin refs/tags/aira-v1
+   git tag -a aira-v0.1.0 origin/master -m "release: aira v0.1.0"
+   git push origin refs/tags/aira-v0.1.0
    ```
 
-   Subsequent releases use `aira-v2`, `aira-v3`, and so on. Tagging publishes
-   the selected commit; no version-bump commit is needed. Inspect the selected
-   source and get commit-message alignment before committing any source changes.
+   Subsequent releases can be `aira-v0.1.1`, `aira-v0.2.0`, and so on. Tagging
+   supplies the Aira version to the build; no Cargo version bump is needed.
+   Inspect the selected source and get commit-message alignment before committing
+   any source changes.
 4. Monitor **Aira fork release** in the fork's Actions tab. It checks the original
    and rerun actors have fork admin permission, validates master ancestry, the
-   annotated tag and increasing release number, and runs native CI. It builds
+   annotated tag and increasing Aira version, and runs native CI. It builds
    and executes `--version` on native runners for all four targets. Python 3.13,
    Bun 1.3.14, Rust 1.96.1, and Zig 0.16.0 are pinned in the workflow.
 5. After every build succeeds, it packages four binaries, `install.sh`,
@@ -161,10 +175,10 @@ This procedure operates only on `three4c/herdr`. Do not run the upstream
    ```
 
 An upload failure may leave a draft; rerunning the failed workflow can replace
-draft assets and complete publication. Already published release numbers are
+draft assets and complete publication. Already published Aira versions are
 rejected and never overwritten. Publication is serialized and rechecks the
 sequence just before publishing, so an older queued build cannot become Latest.
-Use a new number to ship a correction. Keep all published Aira releases and tags.
+Use a new version to ship a correction. Keep all published Aira releases and tags.
 
 ## Licenses and fork notices
 
@@ -207,15 +221,15 @@ shellcheck distribution/fork/install.sh
 The installer tests use temporary destinations and substitute network commands.
 They cover all four platform combinations, checksum tools, checksum mismatch,
 missing checksums, network failures, unsupported platforms, and foreign assets.
-Rust tests cover fork sequence ordering and disabled upstream update sources.
+Rust tests cover fork semantic version ordering and disabled upstream update sources.
 
 For a smoke test of real binaries, build two successive identities, copy each
 binary into temporary staging paths, and run:
 
 ```sh
-HERDR_FORK_RELEASE=1 just build
+HERDR_FORK_VERSION=0.0.9 just build
 # Copy target/release/herdr to a temporary path named old-herdr.
-HERDR_FORK_RELEASE=2 just build
+HERDR_FORK_VERSION=0.1.0 just build
 # Copy target/release/herdr to another temporary path named new-herdr.
 just fork-update-smoke /temporary/path/old-herdr /temporary/path/new-herdr
 ```

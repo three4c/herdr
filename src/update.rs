@@ -618,10 +618,12 @@ fn check_latest() -> Result<Option<ReleaseInfo>, String> {
 
 fn release_info_from_fork_manifest(
     manifest: &crate::fork_distribution::Manifest,
-    installed_release: u64,
+    installed_release: Version,
 ) -> Result<Option<ReleaseInfo>, String> {
     manifest.validate()?;
-    if manifest.release <= installed_release {
+    let release = crate::fork_distribution::parse_release(&manifest.release)
+        .ok_or("invalid fork release version")?;
+    if release <= installed_release {
         return Ok(None);
     }
     let (os, arch) = platform_target();
@@ -2670,37 +2672,60 @@ mod channel_tests {
     use super::*;
 
     #[test]
-    fn fork_releases_compare_sequence_even_when_base_version_changes() {
-        let mut manifest = crate::fork_distribution::test_manifest(12);
+    fn fork_releases_compare_semver_independently_of_base_version() {
+        let mut manifest = crate::fork_distribution::test_manifest("0.1.10");
+        let installed = |value| Version::parse(value).unwrap();
         let (os, arch) = platform_target();
         if !crate::fork_distribution::TARGETS.contains(&format!("{os}-{arch}").as_str()) {
-            let error = release_info_from_fork_manifest(&manifest, 11)
+            let error = release_info_from_fork_manifest(&manifest, installed("0.1.9"))
                 .expect_err("unsupported fork platform");
             assert!(error.contains("unsupported fork target"));
             return;
         }
-        let release = release_info_from_fork_manifest(&manifest, 11)
+        let release = release_info_from_fork_manifest(&manifest, installed("0.1.9"))
             .unwrap()
             .unwrap();
-        assert_eq!(release.label(), "0.9.5-aira.12");
+        assert_eq!(release.label(), "0.9.5-aira.0.1.10");
         assert!(release
             .download_url
             .starts_with("https://github.com/three4c/herdr/"));
         assert!(release.sha256.is_some());
-        assert!(release_info_from_fork_manifest(&manifest, 12)
-            .unwrap()
-            .is_none());
-        assert!(release_info_from_fork_manifest(&manifest, 13)
-            .unwrap()
-            .is_none());
+        assert!(
+            release_info_from_fork_manifest(&manifest, installed("0.1.10"))
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            release_info_from_fork_manifest(&manifest, installed("0.2.0"))
+                .unwrap()
+                .is_none()
+        );
         manifest.base_version = "0.9.4".into();
-        manifest.version = "0.9.4-aira.12".into();
-        assert!(release_info_from_fork_manifest(&manifest, 11)
-            .unwrap()
-            .is_some());
-        assert!(release_info_from_fork_manifest(&manifest, 0)
-            .unwrap()
-            .is_some());
+        manifest.version = "0.9.4-aira.0.1.10".into();
+        assert!(
+            release_info_from_fork_manifest(&manifest, installed("0.1.9"))
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            release_info_from_fork_manifest(&manifest, installed("0.0.0"))
+                .unwrap()
+                .is_some()
+        );
+        for (available, current, should_update) in [
+            ("0.2.0", "0.1.99", true),
+            ("1.0.0", "0.99.99", true),
+            ("0.1.2", "0.1.10", false),
+            ("0.1.0", "0.1.0", false),
+        ] {
+            let manifest = crate::fork_distribution::test_manifest(available);
+            assert_eq!(
+                release_info_from_fork_manifest(&manifest, installed(current))
+                    .unwrap()
+                    .is_some(),
+                should_update
+            );
+        }
     }
 
     #[test]

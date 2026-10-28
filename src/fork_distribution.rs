@@ -14,19 +14,21 @@ pub const TARGETS: [&str; 4] = [
     "macos-aarch64",
 ];
 
-pub fn parse_version(identity: &str) -> Option<(crate::update::Version, u64)> {
-    let (base, number) = identity.split_once("-aira.")?;
-    let release: u64 = number.parse().ok()?;
-    if release.to_string() != number {
-        return None;
-    }
-    Some((crate::update::Version::parse(base)?, release))
+/// Accept only canonical stable versions, with no prefix or prerelease suffix.
+pub fn parse_release(value: &str) -> Option<crate::update::Version> {
+    let version = crate::update::Version::parse(value)?;
+    (version.to_string() == value).then_some(version)
+}
+
+pub fn parse_version(identity: &str) -> Option<(crate::update::Version, crate::update::Version)> {
+    let (base, release) = identity.split_once("-aira.")?;
+    Some((parse_release(base)?, parse_release(release)?))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Manifest {
     pub distribution: String,
-    pub release: u64,
+    pub release: String,
     pub version: String,
     pub base_version: String,
     pub commit: String,
@@ -39,10 +41,13 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn validate(&self) -> Result<(), String> {
-        if self.distribution != REPOSITORY || self.release == 0 {
-            return Err("invalid three4c/herdr distribution or release number".into());
+        if self.distribution != REPOSITORY
+            || parse_release(&self.release).is_none()
+            || self.release == "0.0.0"
+        {
+            return Err("invalid three4c/herdr distribution or release version".into());
         }
-        if crate::update::Version::parse(&self.base_version).is_none()
+        if parse_release(&self.base_version).is_none()
             || self.version != format!("{}-aira.{}", self.base_version, self.release)
             || self.notes.trim().is_empty()
             || self.protocol == 0
@@ -79,10 +84,10 @@ impl Manifest {
 }
 
 #[cfg(test)]
-pub(crate) fn test_manifest(release: u64) -> Manifest {
+pub(crate) fn test_manifest(release: &str) -> Manifest {
     Manifest {
         distribution: REPOSITORY.into(),
-        release,
+        release: release.into(),
         version: format!("0.9.5-aira.{release}"),
         base_version: "0.9.5".into(),
         commit: "a".repeat(40),
@@ -112,25 +117,48 @@ mod tests {
     #[test]
     fn rejects_upstream_assets_and_invalid_integrity_metadata() {
         for target in TARGETS {
-            let mut manifest = test_manifest(2);
+            let mut manifest = test_manifest("0.1.0");
             assert!(manifest.validate().is_ok());
             manifest
                 .assets
                 .insert(target.into(), "https://herdr.dev/latest.json".into());
             assert!(manifest.validate().is_err());
-            let mut manifest = test_manifest(2);
+            let mut manifest = test_manifest("0.1.0");
             manifest.sha256.insert(target.into(), "invalid".into());
             assert!(manifest.validate().is_err());
         }
-        assert!(test_manifest(0).validate().is_err());
-        let mut manifest = test_manifest(2);
+        assert!(test_manifest("0.0.0").validate().is_err());
+        let mut manifest = test_manifest("0.1.0");
         manifest.distribution = "herdrdev/herdr".into();
         assert!(manifest.validate().is_err());
-        let mut manifest = test_manifest(2);
+        let mut manifest = test_manifest("0.1.0");
         manifest.protocol = 0;
         assert!(manifest.validate().is_err());
-        let mut manifest = test_manifest(2);
+        let mut manifest = test_manifest("0.1.0");
         manifest.endpoint_generation = 0;
         assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn fork_versions_are_canonical_stable_semver() {
+        for value in ["0.1.0", "0.1.10", "1.0.0", "0.0.0"] {
+            assert_eq!(parse_release(value).unwrap().to_string(), value);
+        }
+        for value in [
+            "2",
+            "v0.1.0",
+            "0.01.0",
+            "0.1",
+            "0.1.0.0",
+            "+0.1.0",
+            "0.1.0-rc.1",
+            "0.1.0+build",
+            "4294967296.0.0",
+        ] {
+            assert!(parse_release(value).is_none(), "{value}");
+            assert!(parse_version(&format!("0.9.5-aira.{value}")).is_none());
+            assert!(test_manifest(value).validate().is_err());
+        }
+        assert!(parse_version("0.9.5-aira.2").is_none());
     }
 }

@@ -13,28 +13,28 @@ import sys
 import tempfile
 from pathlib import Path
 
-from fork_release import TARGETS, source_number
+from fork_release import TARGETS, source_number, version_parts
 
 MANIFEST_URL = "https://github.com/three4c/herdr/releases/latest/download/fork-latest.json"
 
 
-def identity(binary: Path) -> tuple[str, str, int]:
+def identity(binary: Path) -> tuple[str, str, str]:
     label = subprocess.check_output([str(binary), "--version"], text=True).strip()
-    match = re.fullmatch(r"herdr ([0-9]+\.[0-9]+\.[0-9]+)-aira\.([0-9]+)", label)
+    match = re.fullmatch(r"herdr ([0-9]+\.[0-9]+\.[0-9]+)-aira\.([0-9]+\.[0-9]+\.[0-9]+)", label)
     if not match:
         raise ValueError(f"unexpected fork identity: {label}")
-    return label.removeprefix("herdr "), match[1], int(match[2])
+    return label.removeprefix("herdr "), match[1], match[2]
 
 
 def smoke(old: Path, new: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    old_identity, _, old_number = identity(old)
-    new_identity, new_base, new_number = identity(new)
+    old_identity, _, old_release = identity(old)
+    new_identity, new_base, new_release = identity(new)
     licenses = subprocess.check_output([str(new), "--licenses"], text=True)
     assert licenses.startswith((repo_root / "LICENSE").read_text(encoding="utf-8"))
     assert (repo_root / "distribution/fork/FORK-NOTICE.txt").read_text(encoding="utf-8") in licenses
     assert (repo_root / "distribution/fork/THIRD-PARTY-NOTICES.txt").read_text(encoding="utf-8") in licenses
-    assert 0 < old_number < new_number
+    assert (0, 0, 0) < version_parts(old_release) < version_parts(new_release)
     with tempfile.TemporaryDirectory(prefix="herdr-aira-update-") as tmp:
         root = Path(tmp)
         commands = root / "commands"
@@ -86,13 +86,13 @@ else:
         })
         digest = hashlib.sha256(new.read_bytes()).hexdigest()
         manifest = {
-            "distribution": "three4c/herdr", "release": new_number,
+            "distribution": "three4c/herdr", "release": new_release,
             "version": new_identity, "base_version": new_base,
             "commit": "a" * 40,
             "protocol": source_number(repo_root / "src/protocol/wire.rs", "PROTOCOL_VERSION"),
             "endpoint_generation": source_number(repo_root / "src/protocol/endpoint.rs", "ENDPOINT_PROTOCOL_GENERATION"),
             "notes": "Temporary update smoke test",
-            "assets": {target: f"https://github.com/three4c/herdr/releases/download/aira-v{new_number}/herdr-{target}" for target in TARGETS},
+            "assets": {target: f"https://github.com/three4c/herdr/releases/download/aira-v{new_release}/herdr-{target}" for target in TARGETS},
             "sha256": {target: digest for target in TARGETS},
         }
 
@@ -151,9 +151,9 @@ else:
         requests.write_text("", encoding="utf-8", newline="\n")
         run("update")
         assert requests.read_text(encoding="utf-8").splitlines() == [MANIFEST_URL]
-        manifest["release"] = old_number
-        manifest["version"] = f"{new_base}-aira.{old_number}"
-        manifest["assets"] = {target: f"https://github.com/three4c/herdr/releases/download/aira-v{old_number}/herdr-{target}" for target in TARGETS}
+        manifest["release"] = old_release
+        manifest["version"] = f"{new_base}-aira.{old_release}"
+        manifest["assets"] = {target: f"https://github.com/three4c/herdr/releases/download/aira-v{old_release}/herdr-{target}" for target in TARGETS}
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8", newline="\n")
         requests.write_text("", encoding="utf-8", newline="\n")
         run("update")

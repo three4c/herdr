@@ -237,12 +237,12 @@ mod tests {
     }
 
     #[test]
-    fn fork_notes_follow_release_sequence_across_upstream_versions() {
+    fn fork_notes_follow_semver_across_upstream_versions() {
         for (stored_version, current_version, expected_preview) in [
-            ("0.9.5-aira.12", "0.9.5-aira.11", true),
-            ("0.9.5-aira.12", "0.9.5-aira.12", false),
-            ("0.9.5-aira.12", "0.9.6-aira.13", false),
-            ("0.9.4-aira.13", "0.9.6-aira.12", true),
+            ("0.9.5-aira.0.1.10", "0.9.5-aira.0.1.9", true),
+            ("0.9.5-aira.0.1.0", "0.9.5-aira.0.1.0", false),
+            ("0.9.5-aira.0.1.9", "0.9.6-aira.0.1.10", false),
+            ("0.9.4-aira.0.2.0", "0.9.6-aira.0.1.10", true),
         ] {
             let notes = release_notes_from_stored(
                 StoredReleaseNotes {

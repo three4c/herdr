@@ -62,9 +62,10 @@ fi
     def _write_manifest(self, checksum):
         manifest = {
             "distribution": "three4c/herdr",
-            "release": 12,
-            "version": "0.9.5-aira.12",
-            "assets": {target: f"https://github.com/three4c/herdr/releases/download/aira-v12/herdr-{target}" for target in fork_release.TARGETS},
+            "release": "0.1.10",
+            "base_version": "0.9.5",
+            "version": "0.9.5-aira.0.1.10",
+            "assets": {target: f"https://github.com/three4c/herdr/releases/download/aira-v0.1.10/herdr-{target}" for target in fork_release.TARGETS},
             "sha256": {target: checksum for target in fork_release.TARGETS} if checksum else {},
             **self.manifest_changes,
         }
@@ -89,7 +90,7 @@ fi
                 marker.unlink(missing_ok=True)
                 result = self._run_installer(self.expected_sha256, extra_env={"FAKE_SYSTEM": system, "FAKE_ARCH": arch})
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(marker.read_text(encoding="utf-8").splitlines(), [MANIFEST_URL, f"https://github.com/three4c/herdr/releases/download/aira-v12/herdr-{target}"])
+                self.assertEqual(marker.read_text(encoding="utf-8").splitlines(), [MANIFEST_URL, f"https://github.com/three4c/herdr/releases/download/aira-v0.1.10/herdr-{target}"])
                 self.assertTrue(os.access(self.install_dir / self.binary_name, os.X_OK))
 
     def test_install_and_reinstall_preserve_upstream_executable(self):
@@ -130,11 +131,16 @@ fi
         for changes in (
             {"distribution": "herdrdev/herdr"},
             {"assets": {"linux-x86_64": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64"}},
-            {"assets": {"linux-x86_64": "https://github.com/three4c/herdr/releases/download/aira-v11/herdr-linux-x86_64"}},
+            {"assets": {"linux-x86_64": "https://github.com/three4c/herdr/releases/download/aira-v0.1.9/herdr-linux-x86_64"}},
             {"version": "0.9.5"},
-            {"release": "12"},
+            {"release": 12},
             {"release": -12},
-            {"version": "invalid-aira.12"},
+            {"release": "0.0.0"},
+            {"release": "0.01.0"},
+            {"release": "0.1.0-rc.1"},
+            {"release": "4294967296.0.0"},
+            {"base_version": "0.9.6"},
+            {"version": "invalid-aira.0.1.10"},
         ):
             with self.subTest(changes=changes):
                 (self.bin_dir / "sha256sum").unlink(missing_ok=True)
@@ -159,14 +165,24 @@ class ForkReleaseTests(unittest.TestCase):
         with mock.patch.object(fork_licenses, "inputs", return_value={}), self.assertRaisesRegex(ValueError, "stale"):
             fork_licenses.check(ROOT)
 
-    def test_release_number_is_canonical_and_monotonic(self):
-        self.assertEqual(fork_release.require_newer("aira-v12", ["v99.0.0", "preview-anything", "aira-v11"]), 12)
-        for tag in ("v1", "aira-v0", "aira-v01", "aira-v1.2", "aira-v-1", f"aira-v{2**64}"):
+    def test_release_version_is_canonical_and_semantically_monotonic(self):
+        self.assertEqual(fork_release.require_newer("aira-v0.1.0", ["v99.0.0", "preview-anything"]), "0.1.0")
+        for tag, published in (
+            ("aira-v0.1.10", "aira-v0.1.9"),
+            ("aira-v0.2.0", "aira-v0.1.99"),
+            ("aira-v1.0.0", "aira-v0.99.99"),
+        ):
+            with self.subTest(tag=tag):
+                self.assertEqual(fork_release.require_newer(tag, [published]), tag.removeprefix("aira-v"))
+        for tag in ("v0.1.0", "aira-v1", "aira-v2", "aira-v0.0.0", "aira-v0.01.0", "aira-v0.1", "aira-v-1.0.0", "aira-v0.1.0-rc.1", "aira-v0.1.0+build", "aira-v4294967296.0.0"):
             with self.subTest(tag=tag), self.assertRaises(ValueError):
-                fork_release.release_number(tag)
-        for tag in ("aira-v9", "aira-v10"):
+                fork_release.release_version(tag)
+        for tag in ("aira-v0.1.2", "aira-v0.1.10"):
             with self.subTest(tag=tag), self.assertRaises(ValueError):
-                fork_release.require_newer(tag, ["aira-v10"])
+                fork_release.require_newer(tag, ["aira-v0.1.10"])
+        # Retired integer releases must be withdrawn rather than silently ignored.
+        with self.assertRaises(ValueError):
+            fork_release.require_newer("aira-v0.1.0", ["aira-v2"])
 
     def test_packaging_produces_matching_checksums_and_fork_urls(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -174,12 +190,12 @@ class ForkReleaseTests(unittest.TestCase):
             assets.mkdir()
             for target in fork_release.TARGETS:
                 (assets / f"herdr-{target}").write_bytes(f"binary:{target}".encode())
-            manifest = fork_release.prepare("aira-v12", assets, output, ROOT)
+            manifest = fork_release.prepare("aira-v0.1.10", assets, output, ROOT)
             self.assertEqual(manifest["distribution"], "three4c/herdr")
-            self.assertTrue(manifest["version"].endswith("-aira.12"))
+            self.assertTrue(manifest["version"].endswith("-aira.0.1.10"))
             for target in fork_release.TARGETS:
                 self.assertEqual(manifest["sha256"][target], hashlib.sha256((output / f"herdr-{target}").read_bytes()).hexdigest())
-                self.assertEqual(manifest["assets"][target], f"https://github.com/three4c/herdr/releases/download/aira-v12/herdr-{target}")
+                self.assertEqual(manifest["assets"][target], f"https://github.com/three4c/herdr/releases/download/aira-v0.1.10/herdr-{target}")
             for line in (output / "SHA256SUMS").read_text(encoding="utf-8").splitlines():
                 digest, name = line.split("  ")
                 self.assertEqual(digest, hashlib.sha256((output / name).read_bytes()).hexdigest())
@@ -188,7 +204,7 @@ class ForkReleaseTests(unittest.TestCase):
                 self.assertEqual((output / name).read_bytes(), (ROOT / source).read_bytes())
             (assets / "herdr-linux-aarch64").unlink()
             with self.assertRaisesRegex(ValueError, "missing or empty"):
-                fork_release.prepare("aira-v13", assets, output, ROOT)
+                fork_release.prepare("aira-v0.1.11", assets, output, ROOT)
 
 
 if __name__ == "__main__":
