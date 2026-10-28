@@ -1,14 +1,16 @@
 // Aira fork: modified for personal tab-focused behavior and fork distribution.
 fn main() {
-    println!("cargo:rerun-if-env-changed=HERDR_FORK_RELEASE");
-    let release = std::env::var("HERDR_FORK_RELEASE").unwrap_or_else(|_| "0".into());
-    let number: u64 = release.parse().expect("HERDR_FORK_RELEASE must be a u64");
-    assert_eq!(
-        release,
-        number.to_string(),
-        "non-canonical fork release number"
+    println!("cargo:rerun-if-env-changed=HERDR_FORK_VERSION");
+    let release = std::env::var("HERDR_FORK_VERSION").unwrap_or_else(|_| "0.0.0".into());
+    let parts: Vec<&str> = release.split('.').collect();
+    assert!(
+        parts.len() == 3
+            && parts.iter().all(|part| part
+                .parse::<u32>()
+                .is_ok_and(|number| number.to_string() == *part)),
+        "HERDR_FORK_VERSION must be a canonical major.minor.patch version"
     );
-    println!("cargo:rustc-env=HERDR_FORK_RELEASE={number}");
+    println!("cargo:rustc-env=HERDR_FORK_VERSION={release}");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=HERDR_BUILD_CHANNEL");
     println!("cargo:rerun-if-env-changed=HERDR_BUILD_ID");

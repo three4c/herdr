@@ -31,7 +31,7 @@ pub fn current_build_version() -> String {
     format!(
         "{}-aira.{}",
         env!("CARGO_PKG_VERSION"),
-        env!("HERDR_FORK_RELEASE")
+        env!("HERDR_FORK_VERSION")
     )
 }
 

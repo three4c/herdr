@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
-      number: ${{ steps.release.outputs.number }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - &require-fork-admin
         name: Require fork admins for publishing and reruns
@@ -55,8 +55,8 @@ jobs:
           test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
             jq '[.[][] | select(.draft == false) | .tag_name]' > "$RUNNER_TEMP/published.json"
-          number="$(python3 scripts/fork_release.py check --tag "$GITHUB_REF_NAME" --published "$RUNNER_TEMP/published.json")"
-          echo "number=$number" >> "$GITHUB_OUTPUT"
+          version="$(python3 scripts/fork_release.py check --tag "$GITHUB_REF_NAME" --published "$RUNNER_TEMP/published.json")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Install Rust
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
         with:
@@ -106,7 +106,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     env:
-      HERDR_FORK_RELEASE: ${{ needs.preflight.outputs.number }}
+      HERDR_FORK_VERSION: ${{ needs.preflight.outputs.version }}
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
       LIBGHOSTTY_VT_SIMD: 'true'
     steps:
@@ -144,7 +144,7 @@ jobs:
           cargo build --release --locked --target "$BUILD_TARGET"
           cp "target/$BUILD_TARGET/release/herdr" "$ASSET"
           base="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')"
-          test "$(./"$ASSET" --version)" = "herdr $base-aira.$HERDR_FORK_RELEASE"
+          test "$(./"$ASSET" --version)" = "herdr $base-aira.$HERDR_FORK_VERSION"
           ./"$ASSET" --licenses > "$RUNNER_TEMP/aira-licenses.txt"
           python3 -c 'from pathlib import Path; import sys; expected = "\n".join(Path(p).read_text() for p in ["LICENSE", "distribution/fork/FORK-NOTICE.txt", "distribution/fork/THIRD-PARTY-NOTICES.txt"]); assert Path(sys.argv[1]).read_text() == expected' "$RUNNER_TEMP/aira-licenses.txt"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -187,7 +187,8 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft > "$RUNNER_TEMP/existing.json" 2>/dev/null; then
             jq -e '.isDraft == true' "$RUNNER_TEMP/existing.json"
           else
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$GITHUB_REF_NAME" --notes-from-tag
+            git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.txt"
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.txt"
           fi
           gh release upload "$GITHUB_REF_NAME" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest

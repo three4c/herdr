@@ -15,19 +15,30 @@ REPOSITORY = "three4c/herdr"
 TARGETS = ("linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64")
 
 
-def release_number(tag: str) -> int:
-    match = re.fullmatch(r"aira-v([1-9][0-9]*)", tag)
-    if not match or int(match[1]) > 2**64 - 1:
-        raise ValueError("tag must be aira-v<N> with a positive u64 release number")
-    return int(match[1])
+def version_parts(version: str) -> tuple[int, int, int]:
+    if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+        raise ValueError("fork version must be canonical major.minor.patch")
+    parts = tuple(int(part) for part in version.split("."))
+    if any(part > 2**32 - 1 for part in parts):
+        raise ValueError("fork version components must fit u32")
+    return parts
 
 
-def require_newer(tag: str, published_tags: list[str]) -> int:
-    number = release_number(tag)
-    numbers = [release_number(other) for other in published_tags if re.fullmatch(r"aira-v[1-9][0-9]*", other)]
-    if numbers and number <= max(numbers):
-        raise ValueError("fork release number must exceed every published fork release")
-    return number
+def release_version(tag: str) -> str:
+    if not tag.startswith("aira-v"):
+        raise ValueError("tag must be aira-v<major.minor.patch>")
+    version = tag.removeprefix("aira-v")
+    if version_parts(version) == (0, 0, 0):
+        raise ValueError("0.0.0 is reserved for local builds")
+    return version
+
+
+def require_newer(tag: str, published_tags: list[str]) -> str:
+    version = release_version(tag)
+    versions = [version_parts(release_version(other)) for other in published_tags if other.startswith("aira-v")]
+    if versions and version_parts(version) <= max(versions):
+        raise ValueError("fork version must exceed every published fork release")
+    return version
 
 
 def source_number(path: Path, constant: str) -> int:
@@ -38,9 +49,9 @@ def source_number(path: Path, constant: str) -> int:
 
 
 def prepare(tag: str, assets: Path, output: Path, root: Path = Path(".")) -> dict:
-    number = release_number(tag)
+    version = release_version(tag)
     base = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))["package"]["version"]
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", base):
+    if version_parts(base) == (0, 0, 0):
         raise ValueError("Cargo.toml must contain a stable base version")
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     checksums = {}
@@ -54,13 +65,13 @@ def prepare(tag: str, assets: Path, output: Path, root: Path = Path(".")) -> dic
         shutil.copyfile(source, output / name)
     manifest = {
         "distribution": REPOSITORY,
-        "release": number,
-        "version": f"{base}-aira.{number}",
+        "release": version,
+        "version": f"{base}-aira.{version}",
         "base_version": base,
         "commit": commit,
         "protocol": source_number(root / "src/protocol/wire.rs", "PROTOCOL_VERSION"),
         "endpoint_generation": source_number(root / "src/protocol/endpoint.rs", "ENDPOINT_PROTOCOL_GENERATION"),
-        "notes": f"Personal fork release {number} ({commit[:12]}). https://github.com/{REPOSITORY}/releases/tag/{tag}",
+        "notes": f"Aira {version}, based on Herdr {base} ({commit[:12]}). https://github.com/{REPOSITORY}/releases/tag/{tag}",
         "assets": {target: f"https://github.com/{REPOSITORY}/releases/download/{tag}/herdr-{target}" for target in TARGETS},
         "sha256": checksums,
     }

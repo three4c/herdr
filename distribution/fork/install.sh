@@ -63,16 +63,13 @@ main() {
     VERSION="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"version"[[:space:]]*:/ { print $4; exit }')"
 
     DISTRIBUTION="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"distribution"[[:space:]]*:/ { print $4; exit }')"
-    RELEASE="$(printf '%s\n' "$MANIFEST" | awk '/^[[:space:]]*"release"[[:space:]]*:[[:space:]]*[1-9][0-9]*,?[[:space:]]*$/ { gsub(/[^0-9]/, ""); print; exit }')"
+    RELEASE="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"release"[[:space:]]*:/ { print $4; exit }')"
+    BASE_VERSION="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"base_version"[[:space:]]*:/ { print $4; exit }')"
     [ "$DISTRIBUTION" = "three4c/herdr" ] || err "invalid fork distribution"
-    case "$RELEASE" in
-        ''|0|0*|*[!0-9]*) err "invalid fork release number" ;;
-    esac
-    case "$VERSION" in
-        *-aira."$RELEASE") ;;
-        *) err "invalid fork version identity" ;;
-    esac
-    printf '%s\n' "$VERSION" | awk '/^[0-9]+\.[0-9]+\.[0-9]+-aira\.[1-9][0-9]*$/ { valid = 1 } END { exit !valid }' || err "invalid fork version identity"
+    valid_version "$RELEASE" || err "invalid fork release version"
+    [ "$RELEASE" != "0.0.0" ] || err "local builds cannot be installed as releases"
+    valid_version "$BASE_VERSION" || err "invalid fork base version"
+    [ "$VERSION" = "${BASE_VERSION}-aira.${RELEASE}" ] || err "invalid fork version identity"
     EXPECTED_URL="https://github.com/three4c/herdr/releases/download/aira-v${RELEASE}/herdr-${TARGET}"
     [ "$URL" = "$EXPECTED_URL" ] || err "binary URL must belong to the matching three4c/herdr release"
 
@@ -165,6 +162,15 @@ need() {
     if ! command -v "$1" >/dev/null 2>&1; then
         err "requires '$1' — install it first, or download a binary manually from https://github.com/three4c/herdr/releases"
     fi
+}
+
+valid_version() {
+    printf '%s\n' "$1" | awk -F . '
+        /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
+            if ($1 <= 4294967295 && $2 <= 4294967295 && $3 <= 4294967295) valid = 1
+        }
+        END { exit !valid }
+    '
 }
 
 main "$@"

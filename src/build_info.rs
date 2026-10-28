@@ -41,10 +41,9 @@ pub fn executable_name() -> &'static str {
     }
 }
 
-pub fn fork_release() -> u64 {
-    env!("HERDR_FORK_RELEASE")
-        .parse()
-        .expect("build.rs validated HERDR_FORK_RELEASE")
+pub fn fork_release() -> crate::update::Version {
+    crate::fork_distribution::parse_release(env!("HERDR_FORK_VERSION"))
+        .expect("build.rs validated HERDR_FORK_VERSION")
 }
 
 pub fn is_preview() -> bool {
