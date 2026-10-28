@@ -95,7 +95,7 @@ args=sys.argv[1:]
 for arg in args:
  if arg.startswith(('https://','http://')):
   with open(os.environ['AIRA_REQUESTS'],'a',encoding='utf-8') as log:log.write(json.dumps(arg)+'\\n')
-  if not arg.startswith('https://github.com/three4c/herdr/releases/'):sys.exit(97)
+  if not arg.startswith('https://github.com/three4c/herdr-aira/releases/'):sys.exit(97)
 os.execv(os.environ['AIRA_REAL_CURL'],[os.environ['AIRA_REAL_CURL'],*args])
 ''', encoding='utf-8')
         (trace / 'curl').chmod(0o700)

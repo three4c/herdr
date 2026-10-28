@@ -28,7 +28,7 @@ env:
 
 jobs:
   request:
-    if: github.repository == 'three4c/herdr' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    if: github.repository == 'three4c/herdr-aira' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     permissions:
@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$GITHUB_REPOSITORY" = "three4c/herdr"
+          test "$GITHUB_REPOSITORY" = "three4c/herdr-aira"
           for actor in "$GITHUB_ACTOR" "$GITHUB_TRIGGERING_ACTOR"; do
             permission="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$actor/permission" --jq .permission)"
             test "$permission" = admin || { echo "error: $actor must be a fork admin" >&2; exit 1; }
@@ -69,7 +69,7 @@ jobs:
 
   preflight:
     needs: request
-    if: always() && github.repository == 'three4c/herdr' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/aira-v')) || (github.event_name == 'workflow_dispatch' && needs.request.result == 'success'))
+    if: always() && github.repository == 'three4c/herdr-aira' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/aira-v')) || (github.event_name == 'workflow_dispatch' && needs.request.result == 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
@@ -154,7 +154,7 @@ jobs:
 
   build:
     needs: preflight
-    if: ${{ !cancelled() && github.repository == 'three4c/herdr' && needs.preflight.result == 'success' }}
+    if: ${{ !cancelled() && github.repository == 'three4c/herdr-aira' && needs.preflight.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -224,7 +224,7 @@ jobs:
 
   publish:
     needs: [preflight, build]
-    if: ${{ !cancelled() && github.repository == 'three4c/herdr' && needs.preflight.result == 'success' && needs.build.result == 'success' }}
+    if: ${{ !cancelled() && github.repository == 'three4c/herdr-aira' && needs.preflight.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -269,7 +269,7 @@ jobs:
 
   verify:
     needs: [preflight, publish]
-    if: ${{ !cancelled() && github.repository == 'three4c/herdr' && needs.preflight.result == 'success' && needs.publish.result == 'success' }}
+    if: ${{ !cancelled() && github.repository == 'three4c/herdr-aira' && needs.preflight.result == 'success' && needs.publish.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

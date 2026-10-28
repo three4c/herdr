@@ -103,7 +103,7 @@ def request(version: str, expected_commit: str = "", *, dry_run: bool = False) -
     if (os.environ.get("GITHUB_REPOSITORY") != REPOSITORY
             or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
             or os.environ.get("GITHUB_REF") != "refs/heads/master"):
-        raise ValueError("manual Aira releases must run from three4c/herdr master")
+        raise ValueError("manual Aira releases must run from three4c/herdr-aira master")
     commit = os.environ.get("GITHUB_SHA", "")
     if not re.fullmatch(r"[0-9a-f]{40}", commit) or (expected_commit and expected_commit != commit):
         raise ValueError("master changed since version review; review the new source before releasing")

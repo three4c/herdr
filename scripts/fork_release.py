@@ -11,7 +11,7 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-REPOSITORY = "three4c/herdr"
+REPOSITORY = "three4c/herdr-aira"
 TARGETS = ("linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64")
 
 

@@ -16,7 +16,7 @@ from scripts import test_unix_installer as upstream
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "distribution/fork/install.sh"
-MANIFEST_URL = "https://github.com/three4c/herdr/releases/latest/download/fork-latest.json"
+MANIFEST_URL = "https://github.com/three4c/herdr-aira/releases/latest/download/fork-latest.json"
 
 
 @unittest.skipUnless(os.name == "posix", "Unix installer requires POSIX")
@@ -49,7 +49,7 @@ for argument in "$@"; do
 done
 printf '%s\n' "$url" >> "$FAKE_CURL_MARKER"
 case "$url" in
-  https://github.com/three4c/herdr/releases/*) ;;
+  https://github.com/three4c/herdr-aira/releases/*) ;;
   *) exit 99 ;;
 esac
 if [ -n "$out" ]; then
@@ -63,11 +63,11 @@ fi
 
     def _write_manifest(self, checksum):
         manifest = {
-            "distribution": "three4c/herdr",
+            "distribution": "three4c/herdr-aira",
             "release": "0.1.10",
             "base_version": "0.9.5",
             "version": "0.9.5-aira.0.1.10",
-            "assets": {target: f"https://github.com/three4c/herdr/releases/download/aira-v0.1.10/herdr-{target}" for target in fork_release.TARGETS},
+            "assets": {target: f"https://github.com/three4c/herdr-aira/releases/download/aira-v0.1.10/herdr-{target}" for target in fork_release.TARGETS},
             "sha256": {target: checksum for target in fork_release.TARGETS} if checksum else {},
             **self.manifest_changes,
         }
@@ -92,7 +92,7 @@ fi
                 marker.unlink(missing_ok=True)
                 result = self._run_installer(self.expected_sha256, extra_env={"FAKE_SYSTEM": system, "FAKE_ARCH": arch})
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(marker.read_text(encoding="utf-8").splitlines(), [MANIFEST_URL, f"https://github.com/three4c/herdr/releases/download/aira-v0.1.10/herdr-{target}"])
+                self.assertEqual(marker.read_text(encoding="utf-8").splitlines(), [MANIFEST_URL, f"https://github.com/three4c/herdr-aira/releases/download/aira-v0.1.10/herdr-{target}"])
                 self.assertTrue(os.access(self.install_dir / self.binary_name, os.X_OK))
 
     def test_install_and_reinstall_preserve_upstream_executable(self):
@@ -133,7 +133,7 @@ fi
         for changes in (
             {"distribution": "herdrdev/herdr"},
             {"assets": {"linux-x86_64": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64"}},
-            {"assets": {"linux-x86_64": "https://github.com/three4c/herdr/releases/download/aira-v0.1.9/herdr-linux-x86_64"}},
+            {"assets": {"linux-x86_64": "https://github.com/three4c/herdr-aira/releases/download/aira-v0.1.9/herdr-linux-x86_64"}},
             {"version": "0.9.5"},
             {"release": 12},
             {"release": -12},
@@ -204,11 +204,11 @@ class ForkReleaseTests(unittest.TestCase):
             for target in fork_release.TARGETS:
                 (assets / f"herdr-{target}").write_bytes(f"binary:{target}".encode())
             manifest = fork_release.prepare("aira-v0.1.10", assets, output, ROOT)
-            self.assertEqual(manifest["distribution"], "three4c/herdr")
+            self.assertEqual(manifest["distribution"], "three4c/herdr-aira")
             self.assertTrue(manifest["version"].endswith("-aira.0.1.10"))
             for target in fork_release.TARGETS:
                 self.assertEqual(manifest["sha256"][target], hashlib.sha256((output / f"herdr-{target}").read_bytes()).hexdigest())
-                self.assertEqual(manifest["assets"][target], f"https://github.com/three4c/herdr/releases/download/aira-v0.1.10/herdr-{target}")
+                self.assertEqual(manifest["assets"][target], f"https://github.com/three4c/herdr-aira/releases/download/aira-v0.1.10/herdr-{target}")
             for line in (output / "SHA256SUMS").read_text(encoding="utf-8").splitlines():
                 digest, name = line.split("  ")
                 self.assertEqual(digest, hashlib.sha256((output / name).read_bytes()).hexdigest())

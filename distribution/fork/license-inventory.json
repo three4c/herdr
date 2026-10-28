@@ -1,6 +1,6 @@
 {
   "inputs": {
-    ".github/workflows/fork-release.yml": "64e7112893cde112328af265bc2f588e4b5521f476b94a2f000a776558aed8ea",
+    ".github/workflows/fork-release.yml": "33e0fa06311f0523b670342a2be717d43f2052fd5b2915601e06c80584232065",
     "Cargo.lock": "5b875a9169c1ed9fece630dbc8e13e082be9cd7ba548ca4e35dab7e0847c771a",
     "Cargo.toml": "57112a8af6db0fd7a7b1bb3631f60620ea9cbfe9b3739af9f4ba2e0d7e89b76f",
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",

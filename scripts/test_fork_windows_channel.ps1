@@ -39,14 +39,14 @@ function Invoke-FixtureHerdr {
 }
 
 $script:fixtureExitCode = 0
-foreach ($channel in @("aira (three4c/herdr)", "aira", "stable", "preview", "not-aira")) {
+foreach ($channel in @("aira (three4c/herdr-aira)", "aira", "stable", "preview", "not-aira")) {
     $script:fixtureChannel = $channel
-    $expected = $channel -in @("aira (three4c/herdr)", "aira")
+    $expected = $channel -in @("aira (three4c/herdr-aira)", "aira")
     if ((Test-AiraUpdateChannel -ExePath Invoke-FixtureHerdr) -ne $expected) {
         throw "incorrect installer branch for channel '$channel'"
     }
 }
-$script:fixtureChannel = "aira (three4c/herdr)"
+$script:fixtureChannel = "aira (three4c/herdr-aira)"
 $script:fixtureExitCode = 17
 $rejected = $false
 try {

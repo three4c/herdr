@@ -1,12 +1,12 @@
-//! Distribution contract for the three4c/herdr personal fork.
+//! Distribution contract for the three4c/herdr-aira personal fork.
 
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-pub const REPOSITORY: &str = "three4c/herdr";
+pub const REPOSITORY: &str = "three4c/herdr-aira";
 pub const MANIFEST_URL: &str =
-    "https://github.com/three4c/herdr/releases/latest/download/fork-latest.json";
+    "https://github.com/three4c/herdr-aira/releases/latest/download/fork-latest.json";
 pub const TARGETS: [&str; 4] = [
     "linux-x86_64",
     "linux-aarch64",
@@ -45,7 +45,7 @@ impl Manifest {
             || parse_release(&self.release).is_none()
             || self.release == "0.0.0"
         {
-            return Err("invalid three4c/herdr distribution or release version".into());
+            return Err("invalid three4c/herdr-aira distribution or release version".into());
         }
         if parse_release(&self.base_version).is_none()
             || self.version != format!("{}-aira.{}", self.base_version, self.release)
@@ -74,7 +74,9 @@ impl Manifest {
         let url = self.assets.get(target).ok_or("missing fork binary")?;
         let checksum = self.sha256.get(target).ok_or("missing fork checksum")?;
         if url != &expected {
-            return Err("fork binary URL must belong to the matching three4c/herdr release".into());
+            return Err(
+                "fork binary URL must belong to the matching three4c/herdr-aira release".into(),
+            );
         }
         if checksum.len() != 64 || !checksum.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return Err("invalid fork SHA-256 checksum".into());

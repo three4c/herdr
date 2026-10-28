@@ -64,7 +64,7 @@ jobs:
             kind: windows
     runs-on: ${{ matrix.os }}
     # Aira fork: a cold macOS build passed Rust tests but exhausted 15 minutes.
-    timeout-minutes: ${{ github.repository == 'three4c/herdr' && matrix.os == 'macos-latest' && 30 || 15 }}
+    timeout-minutes: ${{ github.repository == 'three4c/herdr-aira' && matrix.os == 'macos-latest' && 30 || 15 }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
