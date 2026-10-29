@@ -91,10 +91,15 @@ fn worktree_list_result(open_workspace_id: Option<&str>) -> crate::api::schema::
     }
 }
 
-// `keys.workspace_picker` is unbound by default; navigation fixtures bind it explicitly.
-fn config_with_workspace_picker() -> Config {
+// The workspace keys are unbound by default; navigation fixtures bind them explicitly.
+fn config_with_workspace_keys() -> Config {
+    use crate::config::BindingConfig;
+
     let mut config = Config::default();
-    config.keys.workspace_picker = crate::config::BindingConfig::one("prefix+w");
+    config.keys.workspace_picker = BindingConfig::one("prefix+w");
+    config.keys.new_workspace = BindingConfig::one("prefix+shift+n");
+    config.keys.rename_workspace = BindingConfig::one("prefix+shift+w");
+    config.keys.close_workspace = BindingConfig::one("prefix+shift+d");
     config
 }
 

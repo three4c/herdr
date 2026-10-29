@@ -342,7 +342,7 @@ pub struct KeysConfig {
     pub help: BindingConfig,
     /// Open settings. Default: "prefix+s"
     pub settings: BindingConfig,
-    /// Create a new workspace. Default: "prefix+shift+n"
+    /// Create a new workspace. Unset by default.
     pub new_workspace: BindingConfig,
     /// Create a Git worktree from the selected workspace. Default: "prefix+shift+g"
     pub new_worktree: BindingConfig,
@@ -350,9 +350,9 @@ pub struct KeysConfig {
     pub open_worktree: BindingConfig,
     /// Delete the selected managed worktree checkout after confirmation. Unset by default.
     pub remove_worktree: BindingConfig,
-    /// Rename the selected workspace. Default: "prefix+shift+w"
+    /// Rename the selected workspace. Unset by default.
     pub rename_workspace: BindingConfig,
-    /// Close the selected workspace. Default: "prefix+shift+d"
+    /// Close the selected workspace. Unset by default.
     pub close_workspace: BindingConfig,
     /// Open the workspace navigation surface. Unset by default.
     pub workspace_picker: BindingConfig,
@@ -450,7 +450,7 @@ pub struct KeysConfig {
     pub tab_mode: BindingConfig,
     /// Enter pane mode (h/j/k/l move pane focus). Default: "prefix+p"
     pub pane_mode: BindingConfig,
-    /// Enter session mode (settings, reload, help, goto, sidebar, detach). Default: "prefix+shift+s"
+    /// Enter session mode (settings, reload, help, goto, notification target, sidebar, detach). Default: "prefix+shift+s"
     pub session_mode: BindingConfig,
     /// Resize the focused pane toward the left. Unset by default.
     pub resize_pane_left: BindingConfig,
@@ -1142,12 +1142,12 @@ impl Default for KeysConfig {
             prefix: BindingConfig::one("ctrl+b"),
             help: BindingConfig::one("prefix+?"),
             settings: BindingConfig::one("prefix+s"),
-            new_workspace: BindingConfig::one("prefix+shift+n"),
+            new_workspace: BindingConfig::empty(),
             new_worktree: BindingConfig::one("prefix+shift+g"),
             open_worktree: BindingConfig::empty(),
             remove_worktree: BindingConfig::empty(),
-            rename_workspace: BindingConfig::one("prefix+shift+w"),
-            close_workspace: BindingConfig::one("prefix+shift+d"),
+            rename_workspace: BindingConfig::empty(),
+            close_workspace: BindingConfig::empty(),
             workspace_picker: BindingConfig::empty(),
             goto: BindingConfig::one("prefix+g"),
             navigate_workspace_up: BindingConfig::one("up"),

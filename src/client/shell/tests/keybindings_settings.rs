@@ -1224,9 +1224,8 @@ fn session_mode_lists_its_keys_in_the_status_bar_and_prefix_bar() {
 
 #[test]
 fn every_mode_bar_shows_esc_exit_right_after_its_title() {
-    let mut state = ClientShellState::new(ClientShellConfig::from_config(
-        &config_with_workspace_picker(),
-    ));
+    let mut state =
+        ClientShellState::new(ClientShellConfig::from_config(&config_with_workspace_keys()));
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
 

@@ -2404,6 +2404,9 @@ switch_tab = "prefix+?"
             ))]
         );
         assert!(binding_triggers(&kb.workspace_picker).is_empty());
+        for workspace in [&kb.new_workspace, &kb.rename_workspace, &kb.close_workspace] {
+            assert!(binding_triggers(workspace).is_empty());
+        }
         assert_eq!(kb.switch_tab.len(), 9);
         assert!(kb
             .switch_tab

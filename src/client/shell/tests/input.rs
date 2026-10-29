@@ -979,9 +979,8 @@ fn pane_text_commits(outcome: &ClientShellInput) -> Vec<String> {
 /// mode. Plain text can still arrive: Tern ignores report-all, IMEs commit
 /// text, and Ghostty `text:` binds type their bytes (#5255).
 fn report_all_kitty_host_state(snapshot: crate::protocol::ClientShellSnapshot) -> ClientShellState {
-    let mut state = ClientShellState::new(ClientShellConfig::from_config(
-        &config_with_workspace_picker(),
-    ));
+    let mut state =
+        ClientShellState::new(ClientShellConfig::from_config(&config_with_workspace_keys()));
     state.set_host_reports_key_releases(true);
     state.set_host_reports_all_keys(true);
     state.set_snapshot(Box::new(snapshot));

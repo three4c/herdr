@@ -60,9 +60,8 @@ fn current_workspace_view() -> crate::api::schema::AgentViewSetParams {
 }
 
 fn state_with_remote() -> (ClientShellState, ClientEndpointId) {
-    let mut state = ClientShellState::new(ClientShellConfig::from_config(
-        &config_with_workspace_picker(),
-    ));
+    let mut state =
+        ClientShellState::new(ClientShellConfig::from_config(&config_with_workspace_keys()));
     // These fixtures exercise the optional Spaces/machines layout.
     state.config.spaces.visible = true;
     let profile = remote_profile();

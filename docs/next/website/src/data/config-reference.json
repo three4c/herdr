@@ -502,8 +502,8 @@
         {
           "key": "keys.new_workspace",
           "type": "keybinding",
-          "default": "\"prefix+shift+n\"",
-          "description": "Create a new workspace."
+          "default": "unset",
+          "description": "Create a new workspace. Unset by default."
         },
         {
           "key": "keys.new_worktree",
@@ -526,14 +526,14 @@
         {
           "key": "keys.rename_workspace",
           "type": "keybinding",
-          "default": "\"prefix+shift+w\"",
-          "description": "Rename the selected workspace."
+          "default": "unset",
+          "description": "Rename the selected workspace. Unset by default."
         },
         {
           "key": "keys.close_workspace",
           "type": "keybinding",
-          "default": "\"prefix+shift+d\"",
-          "description": "Close the selected workspace."
+          "default": "unset",
+          "description": "Close the selected workspace. Unset by default."
         },
         {
           "key": "keys.workspace_picker",
