@@ -1,6 +1,7 @@
 mod keybind_help;
 mod keybindings;
 mod lease;
+pub(crate) mod mode_keys;
 mod model;
 pub(crate) mod mouse;
 mod parse;

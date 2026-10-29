@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
     config::{ActionKeybinds, IndexedKeybind, Keybinds},
-    input::TerminalKey,
+    input::{mode_keys, TerminalKey},
 };
 
 pub(crate) type KeybindHelpEntry = (String, Cow<'static, str>);
@@ -81,7 +81,6 @@ pub(crate) fn keybind_help_groups(
             "global",
             vec![
                 entry(crate::config::format_prefix_combos(prefixes), "prefix mode"),
-                entry(binding_label(&keybinds.session_mode), "session mode"),
                 entry(binding_label(&keybinds.help), "keybinds"),
                 entry(binding_label(&keybinds.settings), "settings"),
                 entry(binding_label(&keybinds.detach), "detach"),
@@ -91,6 +90,18 @@ pub(crate) fn keybind_help_groups(
                     "open notification target",
                 ),
             ],
+        ),
+        (
+            "modes",
+            mode_keys::ALL
+                .iter()
+                .map(|mode| {
+                    (
+                        binding_label(mode.enter_binding(keybinds)),
+                        Cow::Owned(format!("{} mode", mode.name)),
+                    )
+                })
+                .collect(),
         ),
         (
             "tabs",
@@ -107,7 +118,6 @@ pub(crate) fn keybind_help_groups(
                 entry(indexed_label(&keybinds.focus_agent), "focus agent 1-9"),
                 entry(binding_label(&keybinds.new_tab), "new tab"),
                 entry(binding_label(&keybinds.rename_tab), "rename tab"),
-                entry(binding_label(&keybinds.tab_mode), "tab mode"),
                 entry(binding_label(&keybinds.previous_tab), "previous tab"),
                 entry(binding_label(&keybinds.next_tab), "next tab"),
                 entry(binding_label(&keybinds.move_tab_previous), "move tab left"),
@@ -128,10 +138,7 @@ pub(crate) fn keybind_help_groups(
                 entry(binding_label(&keybinds.rename_pane), "rename pane"),
                 entry(binding_label(&keybinds.edit_scrollback), "edit scrollback"),
                 entry(binding_label(&keybinds.clear_pane), "clear pane"),
-                entry(binding_label(&keybinds.copy_mode), "copy mode"),
                 entry(binding_label(&keybinds.zoom), "zoom pane"),
-                entry(binding_label(&keybinds.resize_mode), "resize mode"),
-                entry(binding_label(&keybinds.pane_mode), "pane mode"),
                 entry(
                     binding_label(&keybinds.resize_pane_left),
                     "resize pane left",
@@ -162,6 +169,28 @@ pub(crate) fn keybind_help_groups(
             ],
         ),
     ];
+
+    for mode in mode_keys::ALL {
+        let rows = mode
+            .help_rows(keybinds)
+            .into_iter()
+            .map(|(key, label)| (key, Cow::Borrowed(label)))
+            .collect::<Vec<KeybindHelpEntry>>();
+        let shared_group = match mode.name {
+            "tab" => Some("tabs"),
+            "pane" => Some("panes"),
+            _ => None,
+        };
+        match shared_group {
+            Some(name) => {
+                if let Some((_, entries)) = groups.iter_mut().find(|(group, _)| *group == name) {
+                    entries.extend(rows);
+                }
+            }
+            None if !rows.is_empty() => groups.push((mode.name, rows)),
+            None => {}
+        }
+    }
 
     if !keybinds.custom_commands.is_empty() {
         groups.push((
@@ -276,10 +305,54 @@ mod tests {
     fn default_help_omits_navigate_and_workspace_entries() {
         let groups = keybind_help_groups(&crate::config::Config::default().keybinds(), &[]);
         assert!(groups.iter().all(|(group, _)| *group != "navigation"));
+        let modes = groups
+            .iter()
+            .find_map(|(group, entries)| (*group == "modes").then_some(entries))
+            .expect("modes group");
+        let labels = modes
+            .iter()
+            .map(|(_, label)| label.as_ref())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            [
+                "pane mode",
+                "tab mode",
+                "session mode",
+                "resize mode",
+                "copy mode"
+            ]
+        );
+        let mode_entries = groups
+            .iter()
+            .filter(|(group, _)| *group != "modes")
+            .flat_map(|(_, entries)| entries)
+            .filter(|(_, label)| label.ends_with(" mode") && label.as_ref() != "prefix mode");
+        assert_eq!(mode_entries.count(), 0);
         for (_, entries) in &groups {
             for (_, label) in entries {
                 assert!(!label.contains("workspace"), "{label}");
             }
         }
+    }
+
+    #[test]
+    fn mode_keys_are_listed_under_their_mode() {
+        let groups = keybind_help_groups(&crate::config::Config::default().keybinds(), &[]);
+        let group = |name: &str| {
+            groups
+                .iter()
+                .find(|(group, _)| *group == name)
+                .map(|(_, entries)| entries)
+        };
+        let has = |name: &str, label: &str| {
+            group(name).is_some_and(|entries| entries.iter().any(|(_, text)| text == label))
+        };
+        assert!(has("tabs", "tab mode: next tab"));
+        assert!(has("panes", "pane mode: focus pane"));
+        assert!(has("session", "settings"));
+        assert!(has("resize", "resize pane left / down / up / right"));
+        assert!(has("copy", "select"));
+        assert!(!has("modes", "tab mode: next tab"));
     }
 }
