@@ -809,7 +809,7 @@ fn help_overlay_uses_live_keymap_and_owns_filter_state() {
     assert!(text.contains("prefix mode"));
 
     assert!(state.handle_input_bytes(b"/").actions.is_empty());
-    assert!(state.handle_input_bytes(b"workspace").actions.is_empty());
+    assert!(state.handle_input_bytes(b"tab").actions.is_empty());
     let filtered = state.compose(106, 30).expect("filtered help");
     let text = filtered
         .cells
@@ -821,7 +821,7 @@ fn help_overlay_uses_live_keymap_and_owns_filter_state() {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(text.contains("workspace navigation"));
+    assert!(text.contains("new tab"));
     assert!(!text.contains("prefix mode"));
     assert!(filtered
         .cursor
