@@ -102,6 +102,8 @@ pub(super) fn render_mode_bar(
                     (&keybinds.keybinds.pane_mode, " pane  "),
                     (&keybinds.keybinds.tab_mode, " tab  "),
                     (&keybinds.keybinds.session_mode, " session  "),
+                    (&keybinds.keybinds.resize_mode, " resize  "),
+                    (&keybinds.keybinds.copy_mode, " copy  "),
                 ] {
                     if let Some(label) = bindings.prefix_rhs_label() {
                         segments.extend([(label, key), (description.to_owned(), base)]);

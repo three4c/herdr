@@ -1189,7 +1189,19 @@ fn session_mode_lists_its_keys_in_the_status_bar_and_prefix_bar() {
 
     state.handle_input_bytes(&[0x02]);
     let prefix = bottom_row(&mut state);
-    assert!(prefix.contains("shift+s session"), "{prefix:?}");
+    for expected in [
+        "p pane",
+        "t tab",
+        "shift+s session",
+        "r resize",
+        "[ copy",
+        "? keybinds",
+    ] {
+        assert!(
+            prefix.contains(expected),
+            "{expected:?} missing in {prefix:?}"
+        );
+    }
 
     state.handle_input_bytes(b"S");
     let session = bottom_row(&mut state);
