@@ -2403,6 +2403,7 @@ switch_tab = "prefix+?"
                 KeyModifiers::SHIFT
             ))]
         );
+        assert!(binding_triggers(&kb.workspace_picker).is_empty());
         assert_eq!(kb.switch_tab.len(), 9);
         assert!(kb
             .switch_tab

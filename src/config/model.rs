@@ -354,7 +354,7 @@ pub struct KeysConfig {
     pub rename_workspace: BindingConfig,
     /// Close the selected workspace. Default: "prefix+shift+d"
     pub close_workspace: BindingConfig,
-    /// Open the workspace navigation surface. Default: "prefix+w"
+    /// Open the workspace navigation surface. Unset by default.
     pub workspace_picker: BindingConfig,
     /// Open the session navigator. Default: "prefix+g"
     pub goto: BindingConfig,
@@ -1148,7 +1148,7 @@ impl Default for KeysConfig {
             remove_worktree: BindingConfig::empty(),
             rename_workspace: BindingConfig::one("prefix+shift+w"),
             close_workspace: BindingConfig::one("prefix+shift+d"),
-            workspace_picker: BindingConfig::one("prefix+w"),
+            workspace_picker: BindingConfig::empty(),
             goto: BindingConfig::one("prefix+g"),
             navigate_workspace_up: BindingConfig::one("up"),
             navigate_workspace_down: BindingConfig::one("down"),

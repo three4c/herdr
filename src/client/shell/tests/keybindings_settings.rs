@@ -1142,6 +1142,17 @@ fn session_mode_runs_session_keys_once_and_ignores_others() {
 }
 
 #[test]
+fn workspace_navigation_is_unbound_by_default() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"w");
+    assert_ne!(state.mode, ClientShellMode::Navigate);
+}
+
+#[test]
 fn session_mode_detaches_and_exits_with_esc() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
     state.set_snapshot(Box::new(snapshot()));
@@ -1201,7 +1212,9 @@ fn session_mode_lists_its_keys_in_the_status_bar_and_prefix_bar() {
 
 #[test]
 fn every_mode_bar_shows_esc_exit_right_after_its_title() {
-    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(
+        &config_with_workspace_picker(),
+    ));
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
 

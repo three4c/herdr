@@ -1219,7 +1219,9 @@ fn navigate_mode_selects_workspace_locally_then_focuses_by_stable_id() {
     second.label = "second".into();
     second.focused = false;
     snapshot.workspaces.push(second);
-    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(
+        &config_with_workspace_picker(),
+    ));
     state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot));
     state.set_pane_surface(surface());

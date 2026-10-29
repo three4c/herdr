@@ -538,8 +538,8 @@
         {
           "key": "keys.workspace_picker",
           "type": "keybinding",
-          "default": "\"prefix+w\"",
-          "description": "Open the workspace navigation surface."
+          "default": "unset",
+          "description": "Open the workspace navigation surface. Unset by default."
         },
         {
           "key": "keys.goto",

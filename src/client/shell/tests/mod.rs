@@ -91,6 +91,13 @@ fn worktree_list_result(open_workspace_id: Option<&str>) -> crate::api::schema::
     }
 }
 
+// `keys.workspace_picker` is unbound by default; navigation fixtures bind it explicitly.
+fn config_with_workspace_picker() -> Config {
+    let mut config = Config::default();
+    config.keys.workspace_picker = crate::config::BindingConfig::one("prefix+w");
+    config
+}
+
 fn surface() -> PaneSurfaceFrame {
     let surface_buffer = Buffer::with_lines(["LIVE", "PANE"]);
     PaneSurfaceFrame {
