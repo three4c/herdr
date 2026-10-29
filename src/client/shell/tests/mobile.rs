@@ -188,6 +188,7 @@ fn mobile_shell_controls_remain_clickable_when_pane_mouse_capture_is_disabled() 
 #[test]
 fn mobile_header_and_switcher_render_released_sections_and_stable_targets() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     let mut projected = snapshot();
     projected.agents.push(ClientShellAgent {
         pane_id: "pane_1".into(),
@@ -349,6 +350,7 @@ fn mobile_header_and_switcher_render_released_sections_and_stable_targets() {
 #[test]
 fn mobile_background_workspace_uses_its_own_active_tab_status() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     let mut projected = snapshot();
     projected.tabs.push(ClientShellTab {
         tab_id: "tab_7".into(),
@@ -412,6 +414,7 @@ fn mobile_switcher_create_and_menu_rows_reuse_client_actions() {
     config.prompt_new_workspace_name = true;
     config.prompt_new_tab_name = true;
     let mut state = ClientShellState::new(config);
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(snapshot()));
     state.set_pane_surface(surface());
     let click = |rect: Rect| {
@@ -501,6 +504,7 @@ fn mobile_menu_keeps_inert_notes_open_and_cancel_without_workspace_in_navigate()
     projected.latest_release_notes_available = true;
     projected.release_notes = None;
     let mut state = ClientShellState::new(config);
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(projected));
     state.set_pane_surface(surface());
     state.mode = ClientShellMode::Navigate;
@@ -529,6 +533,7 @@ fn mobile_menu_keeps_inert_notes_open_and_cancel_without_workspace_in_navigate()
     empty.tabs.clear();
     empty.panes.clear();
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&source_config));
+    state.config.spaces.visible = true;
     state.set_snapshot(Box::new(empty));
     state.set_pane_surface(surface());
     state.mode = ClientShellMode::Navigate;
@@ -597,6 +602,7 @@ fn mobile_previous_workspace_action_wraps_across_expanded_entries() {
 #[test]
 fn mobile_switcher_scroll_close_and_width_transition_clear_mobile_hits() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.config.spaces.visible = true;
     let mut projected = snapshot();
     for index in 2..=8 {
         projected.workspaces.push(ClientShellWorkspace {
@@ -672,4 +678,33 @@ fn mobile_switcher_scroll_close_and_width_transition_clear_mobile_hits() {
     assert_eq!(short.cells[0].symbol, "─");
     assert!(state.hits.mobile_close.is_empty());
     assert!(state.hits.mobile_targets.is_empty());
+}
+
+#[test]
+fn mobile_switcher_hides_spaces_unless_visible() {
+    for (visible, expected) in [(false, false), (true, true)] {
+        let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+        state.config.spaces.visible = visible;
+        state.set_snapshot(Box::new(snapshot()));
+        state.set_pane_surface(surface());
+        state.mode = ClientShellMode::Navigate;
+        state.compose(44, 20).expect("mobile switcher");
+
+        let has = |wanted: fn(&ClientMobileTarget) -> bool| {
+            state
+                .hits
+                .mobile_targets
+                .iter()
+                .any(|(_, target)| wanted(target))
+        };
+        assert_eq!(
+            has(|target| matches!(target, ClientMobileTarget::NewWorkspace)),
+            expected
+        );
+        assert_eq!(
+            has(|target| matches!(target, ClientMobileTarget::Workspace { .. })),
+            expected
+        );
+        assert!(has(|target| matches!(target, ClientMobileTarget::NewTab)));
+    }
 }

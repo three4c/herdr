@@ -1100,7 +1100,7 @@
           "key": "ui.sidebar.spaces.visible",
           "type": "boolean",
           "default": "false",
-          "description": "Show the Spaces section above Agents. This fork hides Spaces by default so Agents uses the sidebar height; existing workspaces remain available internally."
+          "description": "Show the Spaces section above Agents and in the narrow-screen switcher. This fork hides Spaces by default so Agents uses the sidebar height; existing workspaces remain available internally."
         },
         {
           "key": "ui.sidebar.spaces.row_gap",

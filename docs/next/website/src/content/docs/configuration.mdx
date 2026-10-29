@@ -373,7 +373,7 @@ This fork defaults to a tab-centered sidebar: Spaces is hidden and Agents uses t
 
 In the desktop Agents list, the primary label is prefixed with the current tab position, for example `#1 herdr` or `#2 dotfiles`, including when only one tab exists. Each agent remains a separate item, even when multiple agents belong to the same tab or directory. Automatic tab numbers are included in this prefix; manually assigned tab names remain available as a secondary token.
 
-Set `visible = true` under `[ui.sidebar.spaces]` to restore the split Spaces/Agents layout. This is a client presentation setting and does not change saved workspaces or the server protocol.
+Set `visible = true` under `[ui.sidebar.spaces]` to restore the split Spaces/Agents layout and the Spaces list in the narrow-screen switcher. This is a client presentation setting and does not change saved workspaces or the server protocol.
 
 With multiple machines configured, a scrollable machine selector stays below Agents, including machines with no agents yet. Directory-based agent labels also apply in the narrow-screen switcher. Paths are interpreted by their format, so Windows endpoints work on Unix clients and literal backslashes in Unix directory names are preserved.
 
