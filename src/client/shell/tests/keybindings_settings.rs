@@ -1142,6 +1142,39 @@ fn session_mode_runs_session_keys_once_and_ignores_others() {
 }
 
 #[test]
+fn keybinds_help_grows_with_the_terminal_height() {
+    let visible = |rows: u16| {
+        let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+        state.set_snapshot(Box::new(snapshot()));
+        state.set_pane_surface(surface());
+        state.handle_input_bytes(&[0x02]);
+        state.handle_input_bytes(b"?");
+        let frame = state.compose(106, rows).expect("help frame");
+        frame
+            .cells
+            .iter()
+            .map(|cell| cell.symbol.as_str())
+            .collect::<String>()
+            .contains("clear selection or search")
+    };
+    assert!(!visible(30));
+    assert!(visible(120));
+}
+
+#[test]
+fn keybinds_help_stays_inside_the_pane_frame_rows() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+    state.handle_input_bytes(&[0x02]);
+    state.handle_input_bytes(b"?");
+    let frame = state.compose(106, 30).expect("help frame");
+    let symbol = |x: usize, y: usize| frame.cells[y * frame.width as usize + x].symbol.as_str();
+    assert_eq!(symbol(15, 2), "┌");
+    assert_eq!(symbol(15, 28), "└");
+}
+
+#[test]
 fn workspace_navigation_is_unbound_by_default() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
     state.set_snapshot(Box::new(snapshot()));

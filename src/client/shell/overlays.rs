@@ -1122,7 +1122,14 @@ fn render_help_overlay(
 ) -> Option<OverlayRender> {
     use ratatui::widgets::{Paragraph, Widget, Wrap};
 
-    let q = popup(b.area, 76, 22)?;
+    // The row below the tab bar is the top border of the pane frame.
+    let below_tab_bar = Rect::new(
+        b.area.x,
+        b.area.y + 1,
+        b.area.width,
+        b.area.height.saturating_sub(1),
+    );
+    let q = popup(below_tab_bar, 76, u16::MAX)?;
     let i = panel(b, q, p.accent, p.panel_bg)?;
     if i.width < 20 || i.height < 6 {
         return None;
