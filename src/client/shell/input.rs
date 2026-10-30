@@ -1174,7 +1174,7 @@ impl ClientShellState {
         }
     }
 
-    /// Sticky Tab/Pane/Session mode: `movement` is the mode's own key, every other key
+    /// Tab/Pane/Session mode: `movement` is the mode's own key, every other key
     /// reuses the prefix keymap restricted to the actions `in_scope` accepts.
     /// Returns whether an action was run.
     fn route_scoped_mode_key(
