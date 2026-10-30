@@ -1003,6 +1003,16 @@ fn tab_mode_switches_tabs_repeatedly_until_done() {
         assert_eq!(state.mode, ClientShellMode::Tab);
     }
 
+    for key in [&b"j"[..], b"k", b"n", b"\x1b[A", b"\x1b[B"] {
+        let outcome = state.handle_input_bytes(key);
+        assert!(outcome.actions.is_empty(), "key {key:?} is not a tab key");
+        assert_eq!(state.mode, ClientShellMode::Tab);
+    }
+    for key in [&b"\x1b[D"[..], b"\x1b[C"] {
+        let outcome = state.handle_input_bytes(key);
+        assert_eq!(outcome.actions.len(), 1, "key {key:?} should switch tab");
+    }
+
     assert!(state.handle_input_bytes(b"\x1b").actions.is_empty());
     assert_eq!(state.mode, ClientShellMode::Terminal);
 }
@@ -1021,7 +1031,7 @@ fn tab_and_pane_modes_reuse_prefix_keys_within_their_scope() {
         assert_eq!(outcome.actions.len(), 1, "pane key {key:?} should run");
         assert_eq!(state.mode, ClientShellMode::Pane);
     }
-    for key in [&b"c"[..], b"n", b"1"] {
+    for key in [&b"c"[..], b"T", b"1"] {
         let outcome = state.handle_input_bytes(key);
         assert!(
             outcome.actions.is_empty(),
@@ -1035,7 +1045,7 @@ fn tab_and_pane_modes_reuse_prefix_keys_within_their_scope() {
     state.handle_input_bytes(&[0x02]);
     state.handle_input_bytes(b"t");
     assert_eq!(state.mode, ClientShellMode::Tab);
-    for key in [&b"c"[..], b"n", b"2"] {
+    for key in [&b"c"[..], b"l", b"2"] {
         let outcome = state.handle_input_bytes(key);
         assert_eq!(outcome.actions.len(), 1, "tab key {key:?} should run");
         assert_eq!(state.mode, ClientShellMode::Tab);
@@ -1084,7 +1094,6 @@ fn tab_and_pane_modes_list_their_keys_in_the_status_bar() {
         "TAB",
         "h/l switch",
         "c new",
-        "n next",
         "1-9 jump",
         "shift+t rename",
         "shift+x close",

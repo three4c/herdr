@@ -1089,12 +1089,8 @@ impl ClientShellState {
         use crate::input::KeybindAction;
 
         let movement = match key.code {
-            KeyCode::Char('h') | KeyCode::Char('k') | KeyCode::Left | KeyCode::Up => {
-                Some(KeybindAction::PreviousTab)
-            }
-            KeyCode::Char('l') | KeyCode::Char('j') | KeyCode::Right | KeyCode::Down => {
-                Some(KeybindAction::NextTab)
-            }
+            KeyCode::Char('h') | KeyCode::Left => Some(KeybindAction::PreviousTab),
+            KeyCode::Char('l') | KeyCode::Right => Some(KeybindAction::NextTab),
             _ => None,
         };
         self.route_scoped_mode_key(key, outcome, movement, |action| {

@@ -243,6 +243,6 @@ mod tests {
             .into_iter()
             .map(|(_, text)| text)
             .collect::<Vec<_>>();
-        assert_eq!(texts, ["switch", "new", "next", "jump", "rename", "close"]);
+        assert_eq!(texts, ["switch", "new", "jump", "rename", "close"]);
     }
 }

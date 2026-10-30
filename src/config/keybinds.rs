@@ -2376,13 +2376,7 @@ switch_tab = "prefix+?"
     #[test]
     fn default_keymap_is_prefix_first_and_tab_centered() {
         let kb = Config::default().keybinds();
-        assert_eq!(
-            binding_triggers(&kb.next_tab),
-            vec![BindingTrigger::Prefix((
-                KeyCode::Char('n'),
-                KeyModifiers::empty()
-            ))]
-        );
+        assert!(kb.next_tab.bindings.is_empty());
         assert!(kb.previous_tab.bindings.is_empty());
         assert_eq!(
             binding_triggers(&kb.tab_mode),

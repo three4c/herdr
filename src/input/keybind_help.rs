@@ -139,13 +139,10 @@ pub(crate) fn keybind_help_groups(keybinds: &Keybinds) -> Vec<KeybindHelpGroup> 
                 entry(mode_label(&keybinds.new_tab, &[]), "new tab"),
                 entry(mode_label(&keybinds.rename_tab, &[]), "rename tab"),
                 entry(
-                    mode_label(&keybinds.previous_tab, &["h", "k", "←", "↑"]),
+                    mode_label(&keybinds.previous_tab, &["h", "←"]),
                     "previous tab",
                 ),
-                entry(
-                    mode_label(&keybinds.next_tab, &["l", "j", "→", "↓"]),
-                    "next tab",
-                ),
+                entry(mode_label(&keybinds.next_tab, &["l", "→"]), "next tab"),
                 entry(
                     mode_label(&keybinds.move_tab_previous, &[]),
                     "move tab left",
@@ -428,8 +425,8 @@ mod tests {
 
     #[test]
     fn fixed_alias_keys_are_merged_into_the_action_row() {
-        assert!(has("tabs", "h / k / ← / ↑", "previous tab"));
-        assert!(has("tabs", "n / l / j / → / ↓", "next tab"));
+        assert!(has("tabs", "h / ←", "previous tab"));
+        assert!(has("tabs", "l / →", "next tab"));
         assert!(has("panes", "h / ←", "focus pane left"));
         assert!(has("tabs", "esc / enter / t", "tab mode: leave"));
         assert!(has("panes", "esc / enter / p", "pane mode: leave"));

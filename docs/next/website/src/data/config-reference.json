@@ -658,8 +658,8 @@
         {
           "key": "keys.next_tab",
           "type": "keybinding",
-          "default": "\"prefix+n\"",
-          "description": "Select the next tab."
+          "default": "unset",
+          "description": "Select the next tab. Unset by default; tab mode (`prefix+t`) then `l` selects it."
         },
         {
           "key": "keys.move_tab_previous",
