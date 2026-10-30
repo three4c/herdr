@@ -5,6 +5,8 @@ type BindingOf = fn(&Keybinds) -> &ActionKeybinds;
 pub(crate) enum ModeKeyLabel {
     Fixed(&'static str),
     Bound(BindingOf),
+    /// The keys that leave a mode: these fixed keys, then the mode's own key.
+    Leave(&'static str),
 }
 
 /// One key hint of a mode. `bar` is its text in the mode bar, `help` its text in
@@ -37,12 +39,18 @@ const fn help(label: &'static str, text: &'static str) -> ModeKeyRow {
     row(ModeKeyLabel::Fixed(label), None, Some(text))
 }
 
+const fn leave(text: &'static str) -> ModeKeyRow {
+    row(ModeKeyLabel::Leave("esc / enter"), None, Some(text))
+}
+
 const fn both(label: ModeKeyLabel, bar: &'static str, help: &'static str) -> ModeKeyRow {
     row(label, Some(bar), Some(help))
 }
 
 use ModeKeyLabel::{Bound, Fixed};
 
+// The tab and pane mode keys that run an action are listed with the action in
+// the keybinds help, so only their bar hints and the leave keys are here.
 pub(crate) const PANE: ModeKeys = ModeKeys {
     name: "pane",
     enter: |kb| &kb.pane_mode,
@@ -54,8 +62,7 @@ pub(crate) const PANE: ModeKeys = ModeKeys {
         bar(Bound(|kb| &kb.close_pane), "close"),
         bar(Bound(|kb| &kb.zoom), "zoom"),
         bar(Bound(|kb| &kb.resize_mode), "resize"),
-        help("h / j / k / l", "pane mode: focus pane"),
-        help("esc / enter", "pane mode: leave"),
+        leave("pane mode: leave"),
     ],
 };
 
@@ -69,9 +76,7 @@ pub(crate) const TAB: ModeKeys = ModeKeys {
         bar(Fixed("1-9"), "jump"),
         bar(Bound(|kb| &kb.rename_tab), "rename"),
         bar(Bound(|kb| &kb.close_tab), "close"),
-        help("h / k / ← / ↑", "tab mode: previous tab"),
-        help("l / j / → / ↓", "tab mode: next tab"),
-        help("esc / enter", "tab mode: leave"),
+        leave("tab mode: leave"),
     ],
 };
 
@@ -90,7 +95,7 @@ pub(crate) const SESSION: ModeKeys = ModeKeys {
         ),
         both(Bound(|kb| &kb.toggle_sidebar), "sidebar", "toggle sidebar"),
         both(Bound(|kb| &kb.detach), "detach", "detach"),
-        help("esc / enter", "leave (other keys are ignored)"),
+        leave("leave"),
     ],
 };
 
@@ -100,8 +105,11 @@ pub(crate) const RESIZE: ModeKeys = ModeKeys {
     rows: &[
         bar(Fixed("h/l"), "width"),
         bar(Fixed("j/k"), "height"),
-        help("h / j / k / l", "resize pane left / down / up / right"),
-        help("esc / enter", "leave"),
+        help("h / ←", "resize pane left"),
+        help("j / ↓", "resize pane down"),
+        help("k / ↑", "resize pane up"),
+        help("l / →", "resize pane right"),
+        leave("leave"),
     ],
 };
 
@@ -110,39 +118,46 @@ pub(crate) const COPY: ModeKeys = ModeKeys {
     name: "copy",
     enter: |kb| &kb.copy_mode,
     rows: &[
-        help("h / j / k / l", "move cursor (arrows too)"),
-        help("w / b / e", "next word / previous word / word end"),
-        help("W / B / E", "same for big words"),
-        help("{ / }", "previous / next paragraph"),
-        help("0 / ^ / $", "line start / first non-blank / line end"),
-        help("g / G", "top / bottom of history"),
-        help("PageUp / PageDown", "page up / down"),
+        help("h / ←", "move cursor left"),
+        help("j / ↓", "move cursor down"),
+        help("k / ↑", "move cursor up"),
+        help("l / →", "move cursor right"),
+        help("w", "next word"),
+        help("b", "previous word"),
+        help("e", "word end"),
+        help("W", "next big word"),
+        help("B", "previous big word"),
+        help("E", "big word end"),
+        help("{", "previous paragraph"),
+        help("}", "next paragraph"),
+        help("0 / Home", "line start"),
+        help("^", "first non-blank"),
+        help("$ / End", "line end"),
+        help("g", "top of history"),
+        help("G", "bottom of history"),
         help(
-            "ctrl+b / ctrl+f",
-            "page up / down (ctrl+b is the prefix by default)",
+            "PageUp / ctrl+b",
+            "page up (ctrl+b is the prefix by default)",
         ),
-        help("ctrl+u / ctrl+d", "half page up / down"),
+        help("PageDown / ctrl+f", "page down"),
+        help("ctrl+u", "half page up"),
+        help("ctrl+d", "half page down"),
         help("v / space", "select"),
         help("V", "select lines"),
-        help("/ / ?", "search forward / backward"),
-        help("n / N", "next / previous match"),
+        help("/", "search forward"),
+        help("?", "search backward"),
+        help("n", "next match"),
+        help("N", "previous match"),
         help("y / enter", "copy and leave"),
         help("esc", "clear selection or search, then leave"),
         help("q", "leave"),
+        help("enter (while typing a search)", "run search"),
+        help("esc (while typing a search)", "cancel search"),
     ],
 };
 
 /// In the order the prefix bar and the keybinds help list them.
 pub(crate) const ALL: [&ModeKeys; 5] = [&PANE, &TAB, &SESSION, &RESIZE, &COPY];
-
-impl ModeKeyLabel {
-    fn resolve(&self, keybinds: &Keybinds) -> Option<String> {
-        match self {
-            Fixed(label) => Some((*label).to_owned()),
-            Bound(binding) => binding(keybinds).prefix_rhs_label(),
-        }
-    }
-}
 
 impl ModeKeys {
     pub(crate) fn enter_binding<'a>(&self, keybinds: &'a Keybinds) -> &'a ActionKeybinds {
@@ -157,6 +172,19 @@ impl ModeKeys {
         self.hints(keybinds, |row| row.help)
     }
 
+    fn resolve(&self, label: &ModeKeyLabel, keybinds: &Keybinds) -> Option<String> {
+        match label {
+            Fixed(label) => Some((*label).to_owned()),
+            Bound(binding) => binding(keybinds).prefix_rhs_label(),
+            ModeKeyLabel::Leave(keys) => {
+                Some(match self.enter_binding(keybinds).prefix_rhs_label() {
+                    Some(own) => format!("{keys} / {own}"),
+                    None => (*keys).to_owned(),
+                })
+            }
+        }
+    }
+
     fn hints(
         &self,
         keybinds: &Keybinds,
@@ -164,7 +192,7 @@ impl ModeKeys {
     ) -> Vec<(String, &'static str)> {
         self.rows
             .iter()
-            .filter_map(|row| Some((row.label.resolve(keybinds)?, text(row)?)))
+            .filter_map(|row| Some((self.resolve(&row.label, keybinds)?, text(row)?)))
             .collect()
     }
 }
@@ -194,6 +222,17 @@ mod tests {
         let hints = SESSION.bar_hints(&keybinds);
         assert!(hints.contains(&("x".to_owned(), "settings")));
         assert!(hints.iter().all(|(_, text)| *text != "detach"));
+    }
+
+    #[test]
+    fn leave_row_ends_with_the_key_that_enters_the_mode() {
+        let keybinds = Config::default().keybinds();
+        assert!(TAB
+            .help_rows(&keybinds)
+            .contains(&("esc / enter / t".to_owned(), "tab mode: leave")));
+        assert!(SESSION
+            .help_rows(&keybinds)
+            .contains(&("esc / enter / shift+s".to_owned(), "leave")));
     }
 
     #[test]

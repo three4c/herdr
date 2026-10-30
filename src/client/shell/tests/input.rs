@@ -806,7 +806,7 @@ fn help_overlay_uses_live_keymap_and_owns_filter_state() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(text.contains("keybinds"));
-    assert!(text.contains("prefix mode"));
+    assert!(text.contains("settings"));
 
     assert!(state.handle_input_bytes(b"/").actions.is_empty());
     assert!(state.handle_input_bytes(b"tab").actions.is_empty());
@@ -822,7 +822,7 @@ fn help_overlay_uses_live_keymap_and_owns_filter_state() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(text.contains("new tab"));
-    assert!(!text.contains("prefix mode"));
+    assert!(!text.contains("settings"));
     assert!(filtered
         .cursor
         .as_ref()
