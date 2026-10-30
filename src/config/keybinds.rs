@@ -280,6 +280,20 @@ impl ActionKeybinds {
         }
     }
 
+    /// Labels with the leading `prefix+` dropped, for keys shown inside a mode.
+    pub fn help_labels(&self) -> Vec<String> {
+        self.bindings
+            .iter()
+            .map(|binding| {
+                binding
+                    .label
+                    .strip_prefix("prefix+")
+                    .unwrap_or(&binding.label)
+                    .to_owned()
+            })
+            .collect()
+    }
+
     pub fn prefix_rhs_label(&self) -> Option<String> {
         let labels: Vec<String> = self
             .bindings
@@ -400,6 +414,7 @@ pub struct Keybinds {
     pub resize_mode: ActionKeybinds,
     pub tab_mode: ActionKeybinds,
     pub pane_mode: ActionKeybinds,
+    pub session_mode: ActionKeybinds,
     pub resize_pane_left: ActionKeybinds,
     pub resize_pane_down: ActionKeybinds,
     pub resize_pane_up: ActionKeybinds,
@@ -585,6 +600,7 @@ impl Config {
             resize_mode: empty_action!(),
             tab_mode: empty_action!(),
             pane_mode: empty_action!(),
+            session_mode: empty_action!(),
             resize_pane_left: empty_action!(),
             resize_pane_down: empty_action!(),
             resize_pane_up: empty_action!(),
@@ -735,6 +751,7 @@ impl Config {
             apply_action!(keybinds.resize_mode, resize_mode, source);
             apply_action!(keybinds.tab_mode, tab_mode, source);
             apply_action!(keybinds.pane_mode, pane_mode, source);
+            apply_action!(keybinds.session_mode, session_mode, source);
             apply_action!(keybinds.resize_pane_left, resize_pane_left, source);
             apply_action!(keybinds.resize_pane_down, resize_pane_down, source);
             apply_action!(keybinds.resize_pane_up, resize_pane_up, source);
@@ -1395,18 +1412,6 @@ fn parse_prefix_keys(config: &BindingConfig) -> (Vec<KeyCombo>, Option<String>, 
     }
 
     (combos, None, diagnostics)
-}
-
-/// Render all configured prefix keys for the help panel.
-pub fn format_prefix_combos(prefixes: &[KeyCombo]) -> String {
-    if prefixes.is_empty() {
-        return format_key_combo(DEFAULT_PREFIX);
-    }
-    prefixes
-        .iter()
-        .map(|combo| format_key_combo(*combo))
-        .collect::<Vec<_>>()
-        .join(" / ")
 }
 
 pub fn normalize_key_combo((mut code, mut modifiers): KeyCombo) -> KeyCombo {
@@ -2371,13 +2376,7 @@ switch_tab = "prefix+?"
     #[test]
     fn default_keymap_is_prefix_first_and_tab_centered() {
         let kb = Config::default().keybinds();
-        assert_eq!(
-            binding_triggers(&kb.next_tab),
-            vec![BindingTrigger::Prefix((
-                KeyCode::Char('n'),
-                KeyModifiers::empty()
-            ))]
-        );
+        assert!(kb.next_tab.bindings.is_empty());
         assert!(kb.previous_tab.bindings.is_empty());
         assert_eq!(
             binding_triggers(&kb.tab_mode),
@@ -2393,6 +2392,17 @@ switch_tab = "prefix+?"
                 KeyModifiers::empty()
             ))]
         );
+        assert_eq!(
+            binding_triggers(&kb.session_mode),
+            vec![BindingTrigger::Prefix((
+                KeyCode::Char('s'),
+                KeyModifiers::SHIFT
+            ))]
+        );
+        assert!(binding_triggers(&kb.workspace_picker).is_empty());
+        for workspace in [&kb.new_workspace, &kb.rename_workspace, &kb.close_workspace] {
+            assert!(binding_triggers(workspace).is_empty());
+        }
         assert_eq!(kb.switch_tab.len(), 9);
         assert!(kb
             .switch_tab

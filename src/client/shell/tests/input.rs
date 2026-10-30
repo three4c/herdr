@@ -806,10 +806,10 @@ fn help_overlay_uses_live_keymap_and_owns_filter_state() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(text.contains("keybinds"));
-    assert!(text.contains("prefix mode"));
+    assert!(text.contains("settings"));
 
     assert!(state.handle_input_bytes(b"/").actions.is_empty());
-    assert!(state.handle_input_bytes(b"workspace").actions.is_empty());
+    assert!(state.handle_input_bytes(b"tab").actions.is_empty());
     let filtered = state.compose(106, 30).expect("filtered help");
     let text = filtered
         .cells
@@ -821,8 +821,8 @@ fn help_overlay_uses_live_keymap_and_owns_filter_state() {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(text.contains("workspace navigation"));
-    assert!(!text.contains("prefix mode"));
+    assert!(text.contains("new tab"));
+    assert!(!text.contains("settings"));
     assert!(filtered
         .cursor
         .as_ref()
@@ -979,7 +979,8 @@ fn pane_text_commits(outcome: &ClientShellInput) -> Vec<String> {
 /// mode. Plain text can still arrive: Tern ignores report-all, IMEs commit
 /// text, and Ghostty `text:` binds type their bytes (#5255).
 fn report_all_kitty_host_state(snapshot: crate::protocol::ClientShellSnapshot) -> ClientShellState {
-    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    let mut state =
+        ClientShellState::new(ClientShellConfig::from_config(&config_with_workspace_keys()));
     state.set_host_reports_key_releases(true);
     state.set_host_reports_all_keys(true);
     state.set_snapshot(Box::new(snapshot));

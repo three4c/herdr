@@ -729,6 +729,10 @@ impl ClientShellState {
                 self.route_pane_mode_key(key, outcome);
                 None
             }
+            ClientShellMode::Session => {
+                self.route_session_mode_key(key, outcome);
+                None
+            }
             ClientShellMode::Copy => {
                 if self
                     .copy_mode
@@ -1085,12 +1089,8 @@ impl ClientShellState {
         use crate::input::KeybindAction;
 
         let movement = match key.code {
-            KeyCode::Char('h') | KeyCode::Char('k') | KeyCode::Left | KeyCode::Up => {
-                Some(KeybindAction::PreviousTab)
-            }
-            KeyCode::Char('l') | KeyCode::Char('j') | KeyCode::Right | KeyCode::Down => {
-                Some(KeybindAction::NextTab)
-            }
+            KeyCode::Char('h') | KeyCode::Left => Some(KeybindAction::PreviousTab),
+            KeyCode::Char('l') | KeyCode::Right => Some(KeybindAction::NextTab),
             _ => None,
         };
         self.route_scoped_mode_key(key, outcome, movement, |action| {
@@ -1149,18 +1149,45 @@ impl ClientShellState {
         });
     }
 
-    /// Sticky Tab/Pane mode: `movement` is the mode's own key, every other key
+    fn route_session_mode_key(
+        &mut self,
+        key: &crate::input::TerminalKey,
+        outcome: &mut ClientShellInput,
+    ) {
+        use crate::input::KeybindAction;
+
+        let ran = self.route_scoped_mode_key(key, outcome, None, |action| {
+            matches!(
+                action,
+                KeybindAction::Settings
+                    | KeybindAction::ReloadConfig
+                    | KeybindAction::Help
+                    | KeybindAction::OpenNavigator
+                    | KeybindAction::OpenNotificationTarget
+                    | KeybindAction::ToggleSidebar
+                    | KeybindAction::Detach
+            )
+        });
+        if ran {
+            self.mode = self.copy_or_terminal_mode();
+            outcome.repaint = true;
+        }
+    }
+
+    /// Tab/Pane/Session mode: `movement` is the mode's own key, every other key
     /// reuses the prefix keymap restricted to the actions `in_scope` accepts.
+    /// Returns whether an action was run.
     fn route_scoped_mode_key(
         &mut self,
         key: &crate::input::TerminalKey,
         outcome: &mut ClientShellInput,
         movement: Option<crate::input::KeybindAction>,
         in_scope: fn(crate::input::KeybindAction) -> bool,
-    ) {
+    ) -> bool {
         let keybinds = &self.config.keybinds.keybinds;
         let own_bindings = match self.mode {
             ClientShellMode::Tab => &keybinds.tab_mode,
+            ClientShellMode::Session => &keybinds.session_mode,
             _ => &keybinds.pane_mode,
         };
         if key.code == KeyCode::Esc
@@ -1170,20 +1197,22 @@ impl ClientShellState {
         {
             self.mode = self.copy_or_terminal_mode();
             outcome.repaint = true;
-            return;
+            return false;
         }
 
         if let Some(action) = movement {
             self.record_binding(crate::input::KeybindMatch::Action(action), outcome);
-            return;
+            return true;
         }
         if let Some(binding @ crate::input::KeybindMatch::Action(action)) =
             crate::input::resolve_prefix_binding(&self.config.keybinds.keybinds, key)
         {
             if in_scope(action) {
                 self.record_binding(binding, outcome);
+                return true;
             }
         }
+        false
     }
 
     fn input_context(&self) -> ClientInputContext {

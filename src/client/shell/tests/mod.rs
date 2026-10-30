@@ -91,6 +91,18 @@ fn worktree_list_result(open_workspace_id: Option<&str>) -> crate::api::schema::
     }
 }
 
+// The workspace keys are unbound by default; navigation fixtures bind them explicitly.
+fn config_with_workspace_keys() -> Config {
+    use crate::config::BindingConfig;
+
+    let mut config = Config::default();
+    config.keys.workspace_picker = BindingConfig::one("prefix+w");
+    config.keys.new_workspace = BindingConfig::one("prefix+shift+n");
+    config.keys.rename_workspace = BindingConfig::one("prefix+shift+w");
+    config.keys.close_workspace = BindingConfig::one("prefix+shift+d");
+    config
+}
+
 fn surface() -> PaneSurfaceFrame {
     let surface_buffer = Buffer::with_lines(["LIVE", "PANE"]);
     PaneSurfaceFrame {

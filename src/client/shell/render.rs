@@ -66,7 +66,10 @@ pub(super) fn render_mode_bar(
         .bg(
             if matches!(
                 mode,
-                ClientShellMode::Resize | ClientShellMode::Tab | ClientShellMode::Pane
+                ClientShellMode::Resize
+                    | ClientShellMode::Tab
+                    | ClientShellMode::Pane
+                    | ClientShellMode::Session
             ) {
                 palette.mauve
             } else {
@@ -74,7 +77,6 @@ pub(super) fn render_mode_bar(
             },
         )
         .add_modifier(Modifier::BOLD);
-    let prefix = keybinds.primary_prefix_label();
     let prefix_rhs = |bindings: &crate::config::ActionKeybinds| {
         bindings
             .prefix_rhs_label()
@@ -94,21 +96,14 @@ pub(super) fn render_mode_bar(
                     (" PREFIX ".to_owned(), mode_style),
                     (" ".to_owned(), base),
                     ("esc".to_owned(), key),
-                    (" cancel  ".to_owned(), base),
-                    (prefix, key),
-                    (" send prefix  ".to_owned(), base),
+                    (" exit  ".to_owned(), base),
                 ]);
-                for (bindings, description) in [
-                    (&keybinds.keybinds.pane_mode, " pane  "),
-                    (&keybinds.keybinds.tab_mode, " tab  "),
-                ] {
-                    if let Some(label) = bindings.prefix_rhs_label() {
-                        segments.extend([(label, key), (description.to_owned(), base)]);
+                for mode in crate::input::mode_keys::ALL {
+                    if let Some(label) = mode.enter_binding(&keybinds.keybinds).prefix_rhs_label() {
+                        segments.extend([(label, key), (format!(" {}  ", mode.name), base)]);
                     }
                 }
                 segments.extend([
-                    (prefix_rhs(&keybinds.keybinds.workspace_picker), key),
-                    (" workspace nav  ".to_owned(), base),
                     (prefix_rhs(&keybinds.keybinds.help), key),
                     (" keybinds".to_owned(), base),
                 ]);
@@ -116,7 +111,9 @@ pub(super) fn render_mode_bar(
             ClientShellMode::Navigate => {
                 segments.extend([
                     (" NAVIGATE ".to_owned(), mode_style),
-                    (" esc back  ".to_owned(), base),
+                    (" ".to_owned(), base),
+                    ("esc".to_owned(), key),
+                    (" exit  ".to_owned(), base),
                     ("↑/↓".to_owned(), key),
                     (" workspace  ".to_owned(), base),
                     ("tab".to_owned(), key),
@@ -125,58 +122,26 @@ pub(super) fn render_mode_bar(
                     (" keybinds".to_owned(), base),
                 ]);
             }
-            ClientShellMode::Resize => {
-                segments.extend([
-                    (" RESIZE ".to_owned(), mode_style),
-                    ("  ".to_owned(), base),
-                    ("h/l".to_owned(), key),
-                    (" width  ".to_owned(), base),
-                    ("j/k".to_owned(), key),
-                    (" height  ".to_owned(), base),
-                    ("esc".to_owned(), key),
-                    (" done".to_owned(), base),
-                ]);
-            }
-            ClientShellMode::Tab | ClientShellMode::Pane => {
-                let bound = |bindings: &crate::config::ActionKeybinds| bindings.prefix_rhs_label();
-                let fixed = |label: &str| Some(label.to_owned());
-                let kb = &keybinds.keybinds;
-                let (title, hints) = if mode == ClientShellMode::Tab {
-                    (
-                        " TAB ",
-                        [
-                            (fixed("h/l"), "switch"),
-                            (bound(&kb.new_tab), "new"),
-                            (bound(&kb.next_tab), "next"),
-                            (fixed("1-9"), "jump"),
-                            (bound(&kb.rename_tab), "rename"),
-                            (bound(&kb.close_tab), "close"),
-                        ]
-                        .to_vec(),
-                    )
-                } else {
-                    (
-                        " PANE ",
-                        [
-                            (fixed("h/j/k/l"), "move"),
-                            (fixed("shift+h/j/k/l"), "swap"),
-                            (bound(&kb.split_vertical), "split|"),
-                            (bound(&kb.split_horizontal), "split-"),
-                            (bound(&kb.close_pane), "close"),
-                            (bound(&kb.zoom), "zoom"),
-                            (bound(&kb.resize_mode), "resize"),
-                        ]
-                        .to_vec(),
-                    )
+            ClientShellMode::Resize
+            | ClientShellMode::Tab
+            | ClientShellMode::Pane
+            | ClientShellMode::Session => {
+                let table = match mode {
+                    ClientShellMode::Resize => &crate::input::mode_keys::RESIZE,
+                    ClientShellMode::Tab => &crate::input::mode_keys::TAB,
+                    ClientShellMode::Pane => &crate::input::mode_keys::PANE,
+                    _ => &crate::input::mode_keys::SESSION,
                 };
-                segments.extend([(title.to_owned(), mode_style), ("  ".to_owned(), base)]);
-                for (label, description) in hints {
-                    if let Some(label) = label {
-                        segments.push((label, key));
-                        segments.push((format!(" {description}  "), base));
-                    }
+                segments.extend([
+                    (format!(" {} ", table.name.to_uppercase()), mode_style),
+                    (" ".to_owned(), base),
+                    ("esc".to_owned(), key),
+                    (" exit  ".to_owned(), base),
+                ]);
+                for (label, description) in table.bar_hints(&keybinds.keybinds) {
+                    segments.push((label, key));
+                    segments.push((format!(" {description}  "), base));
                 }
-                segments.extend([("esc".to_owned(), key), (" done".to_owned(), base)]);
             }
             ClientShellMode::Copy => {
                 let copy_mode = copy_mode?;

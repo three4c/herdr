@@ -173,6 +173,11 @@ impl ClientShellState {
                     outcome.repaint = true;
                     return;
                 }
+                if action == crate::input::KeybindAction::EnterSessionMode {
+                    self.mode = ClientShellMode::Session;
+                    outcome.repaint = true;
+                    return;
+                }
                 if action == crate::input::KeybindAction::CopyMode {
                     if self.enter_copy_mode(outcome) {
                         outcome.repaint = true;

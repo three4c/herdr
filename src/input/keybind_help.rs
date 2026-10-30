@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
     config::{ActionKeybinds, IndexedKeybind, Keybinds},
-    input::TerminalKey,
+    input::{mode_keys, TerminalKey},
 };
 
 pub(crate) type KeybindHelpEntry = (String, Cow<'static, str>);
@@ -72,17 +72,47 @@ fn indexed_range_prefix(bindings: &[IndexedKeybind]) -> Option<&str> {
     Some(prefix)
 }
 
-pub(crate) fn keybind_help_groups(
-    keybinds: &Keybinds,
-    prefixes: &[crate::config::KeyCombo],
-) -> Vec<KeybindHelpGroup> {
+/// A key shown inside a mode: the key after the prefix, plus fixed alias keys.
+fn mode_label(bindings: &ActionKeybinds, aliases: &[&str]) -> String {
+    let mut labels = bindings.help_labels();
+    for alias in aliases {
+        if !labels.iter().any(|label| label == alias) {
+            labels.push((*alias).to_owned());
+        }
+    }
+    if labels.is_empty() {
+        "unset".to_owned()
+    } else {
+        labels.join(" / ")
+    }
+}
+
+fn indexed_mode_label(bindings: &[IndexedKeybind]) -> String {
+    indexed_label(bindings)
+        .split(" / ")
+        .map(|part| part.strip_prefix("prefix+").unwrap_or(part))
+        .collect::<Vec<_>>()
+        .join(" / ")
+}
+
+pub(crate) fn keybind_help_groups(keybinds: &Keybinds) -> Vec<KeybindHelpGroup> {
     let mut groups = vec![
         (
             "global",
             vec![
-                entry(crate::config::format_prefix_combos(prefixes), "prefix mode"),
                 entry(binding_label(&keybinds.help), "keybinds"),
                 entry(binding_label(&keybinds.settings), "settings"),
+                entry(binding_label(&keybinds.goto), "session navigator"),
+                entry(binding_label(&keybinds.new_worktree), "new worktree"),
+                entry(binding_label(&keybinds.open_worktree), "open worktree"),
+                entry(
+                    binding_label(&keybinds.remove_worktree),
+                    "delete worktree checkout",
+                ),
+                entry(binding_label(&keybinds.previous_agent), "previous agent"),
+                entry(binding_label(&keybinds.next_agent), "next agent"),
+                entry(indexed_label(&keybinds.focus_agent), "focus agent 1-9"),
+                entry(binding_label(&keybinds.toggle_sidebar), "toggle sidebar"),
                 entry(binding_label(&keybinds.detach), "detach"),
                 entry(binding_label(&keybinds.reload_config), "reload config"),
                 entry(
@@ -92,91 +122,59 @@ pub(crate) fn keybind_help_groups(
             ],
         ),
         (
-            "navigation",
-            vec![
-                entry("esc", "back"),
-                entry(
-                    format!(
-                        "{} / {}",
-                        binding_label(&keybinds.navigate.workspace_up),
-                        binding_label(&keybinds.navigate.workspace_down)
-                    ),
-                    "workspace list",
-                ),
-                entry(
-                    format!(
-                        "{} / {} / {} / {} / left / right",
-                        binding_label(&keybinds.navigate.pane_left),
-                        binding_label(&keybinds.navigate.pane_down),
-                        binding_label(&keybinds.navigate.pane_up),
-                        binding_label(&keybinds.navigate.pane_right)
-                    ),
-                    "move focus",
-                ),
-                entry("tab / shift+tab", "cycle pane"),
-                entry("enter", "open workspace"),
-                entry("1..9", "switch workspace"),
-            ],
+            "modes",
+            mode_keys::ALL
+                .iter()
+                .map(|mode| {
+                    (
+                        binding_label(mode.enter_binding(keybinds)),
+                        Cow::Owned(format!("{} mode", mode.name)),
+                    )
+                })
+                .collect(),
         ),
         (
-            "workspaces / tabs",
+            "tabs",
             vec![
+                entry(mode_label(&keybinds.new_tab, &[]), "new tab"),
+                entry(mode_label(&keybinds.rename_tab, &[]), "rename tab"),
                 entry(
-                    binding_label(&keybinds.workspace_picker),
-                    "workspace navigation",
+                    mode_label(&keybinds.previous_tab, &["h", "←"]),
+                    "previous tab",
                 ),
-                entry(binding_label(&keybinds.goto), "session navigator"),
-                entry(binding_label(&keybinds.new_workspace), "new workspace"),
-                entry(binding_label(&keybinds.new_worktree), "new worktree"),
-                entry(binding_label(&keybinds.open_worktree), "open worktree"),
+                entry(mode_label(&keybinds.next_tab, &["l", "→"]), "next tab"),
                 entry(
-                    binding_label(&keybinds.remove_worktree),
-                    "delete worktree checkout",
+                    mode_label(&keybinds.move_tab_previous, &[]),
+                    "move tab left",
                 ),
-                entry(
-                    binding_label(&keybinds.rename_workspace),
-                    "rename workspace",
-                ),
-                entry(binding_label(&keybinds.close_workspace), "close workspace"),
-                entry(
-                    binding_label(&keybinds.previous_workspace),
-                    "previous workspace",
-                ),
-                entry(binding_label(&keybinds.next_workspace), "next workspace"),
-                entry(
-                    indexed_label(&keybinds.switch_workspace),
-                    "switch workspace 1-9",
-                ),
-                entry(binding_label(&keybinds.previous_agent), "previous agent"),
-                entry(binding_label(&keybinds.next_agent), "next agent"),
-                entry(indexed_label(&keybinds.focus_agent), "focus agent 1-9"),
-                entry(binding_label(&keybinds.new_tab), "new tab"),
-                entry(binding_label(&keybinds.rename_tab), "rename tab"),
-                entry(binding_label(&keybinds.tab_mode), "tab mode"),
-                entry(binding_label(&keybinds.previous_tab), "previous tab"),
-                entry(binding_label(&keybinds.next_tab), "next tab"),
-                entry(binding_label(&keybinds.move_tab_previous), "move tab left"),
-                entry(binding_label(&keybinds.move_tab_next), "move tab right"),
-                entry(indexed_label(&keybinds.switch_tab), "switch tab 1-9"),
-                entry(binding_label(&keybinds.close_tab), "close tab"),
+                entry(mode_label(&keybinds.move_tab_next, &[]), "move tab right"),
+                entry(indexed_mode_label(&keybinds.switch_tab), "switch tab 1-9"),
+                entry(mode_label(&keybinds.close_tab, &[]), "close tab"),
             ],
         ),
         (
             "panes",
             vec![
-                entry(binding_label(&keybinds.split_vertical), "split vertical"),
+                entry(mode_label(&keybinds.split_vertical, &[]), "split vertical"),
                 entry(
-                    binding_label(&keybinds.split_horizontal),
+                    mode_label(&keybinds.split_horizontal, &[]),
                     "split horizontal",
                 ),
-                entry(binding_label(&keybinds.close_pane), "close pane"),
-                entry(binding_label(&keybinds.rename_pane), "rename pane"),
-                entry(binding_label(&keybinds.edit_scrollback), "edit scrollback"),
-                entry(binding_label(&keybinds.clear_pane), "clear pane"),
-                entry(binding_label(&keybinds.copy_mode), "copy mode"),
-                entry(binding_label(&keybinds.zoom), "zoom pane"),
-                entry(binding_label(&keybinds.resize_mode), "resize mode"),
-                entry(binding_label(&keybinds.pane_mode), "pane mode"),
+                entry(mode_label(&keybinds.close_pane, &[]), "close pane"),
+                entry(mode_label(&keybinds.rename_pane, &[]), "rename pane"),
+                entry(
+                    mode_label(&keybinds.edit_scrollback, &[]),
+                    "edit scrollback",
+                ),
+                entry(mode_label(&keybinds.clear_pane, &[]), "clear pane"),
+                entry(mode_label(&keybinds.zoom, &[]), "zoom pane"),
+                entry(mode_label(&keybinds.swap_pane_left, &[]), "swap pane left"),
+                entry(mode_label(&keybinds.swap_pane_down, &[]), "swap pane down"),
+                entry(mode_label(&keybinds.swap_pane_up, &[]), "swap pane up"),
+                entry(
+                    mode_label(&keybinds.swap_pane_right, &[]),
+                    "swap pane right",
+                ),
                 entry(
                     binding_label(&keybinds.resize_pane_left),
                     "resize pane left",
@@ -190,23 +188,53 @@ pub(crate) fn keybind_help_groups(
                     binding_label(&keybinds.resize_pane_right),
                     "resize pane right",
                 ),
-                entry(binding_label(&keybinds.toggle_sidebar), "toggle sidebar"),
-                entry(binding_label(&keybinds.focus_pane_left), "focus pane left"),
-                entry(binding_label(&keybinds.focus_pane_down), "focus pane down"),
-                entry(binding_label(&keybinds.focus_pane_up), "focus pane up"),
                 entry(
-                    binding_label(&keybinds.focus_pane_right),
+                    mode_label(&keybinds.focus_pane_left, &["←"]),
+                    "focus pane left",
+                ),
+                entry(
+                    mode_label(&keybinds.focus_pane_down, &["↓"]),
+                    "focus pane down",
+                ),
+                entry(mode_label(&keybinds.focus_pane_up, &["↑"]), "focus pane up"),
+                entry(
+                    mode_label(&keybinds.focus_pane_right, &["→"]),
                     "focus pane right",
                 ),
-                entry(binding_label(&keybinds.cycle_pane_next), "cycle pane next"),
                 entry(
-                    binding_label(&keybinds.cycle_pane_previous),
+                    mode_label(&keybinds.cycle_pane_next, &[]),
+                    "cycle pane next",
+                ),
+                entry(
+                    mode_label(&keybinds.cycle_pane_previous, &[]),
                     "cycle pane previous",
                 ),
-                entry(binding_label(&keybinds.last_pane), "last pane"),
+                entry(mode_label(&keybinds.last_pane, &[]), "last pane"),
             ],
         ),
     ];
+
+    for mode in mode_keys::ALL {
+        let rows = mode
+            .help_rows(keybinds)
+            .into_iter()
+            .map(|(key, label)| (key, Cow::Borrowed(label)))
+            .collect::<Vec<KeybindHelpEntry>>();
+        let shared_group = match mode.name {
+            "tab" => Some("tabs"),
+            "pane" => Some("panes"),
+            _ => None,
+        };
+        match shared_group {
+            Some(name) => {
+                if let Some((_, entries)) = groups.iter_mut().find(|(group, _)| *group == name) {
+                    entries.extend(rows);
+                }
+            }
+            None if !rows.is_empty() => groups.push((mode.name, rows)),
+            None => {}
+        }
+    }
 
     if !keybinds.custom_commands.is_empty() {
         groups.push((
@@ -226,6 +254,19 @@ pub(crate) fn keybind_help_groups(
                 })
                 .collect(),
         ));
+    }
+
+    let mut unset = Vec::new();
+    for (_, entries) in &mut groups {
+        let (unbound, bound) = std::mem::take(entries)
+            .into_iter()
+            .partition::<Vec<_>, _>(|(key, _)| key == "unset");
+        *entries = bound;
+        unset.extend(unbound);
+    }
+    groups.retain(|(_, entries)| !entries.is_empty());
+    if !unset.is_empty() {
+        groups.push(("unset", unset));
     }
     groups
 }
@@ -304,16 +345,128 @@ mod tests {
     }
 
     #[test]
-    fn help_lists_every_configured_prefix() {
-        let groups = keybind_help_groups(
-            &Keybinds::default(),
-            &[
-                (KeyCode::Char(' '), KeyModifiers::CONTROL),
-                (KeyCode::Char('s'), KeyModifiers::CONTROL),
-            ],
+    fn default_help_omits_navigate_and_workspace_entries() {
+        let groups = keybind_help_groups(&crate::config::Config::default().keybinds());
+        assert!(groups.iter().all(|(group, _)| *group != "navigation"));
+        let modes = groups
+            .iter()
+            .find_map(|(group, entries)| (*group == "modes").then_some(entries))
+            .expect("modes group");
+        let labels = modes
+            .iter()
+            .map(|(_, label)| label.as_ref())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            [
+                "pane mode",
+                "tab mode",
+                "session mode",
+                "resize mode",
+                "copy mode"
+            ]
         );
-        let global = &groups[0].1;
-        assert_eq!(global[0].0, "ctrl+space / ctrl+s");
-        assert_eq!(global[0].1, "prefix mode");
+        let mode_entries = groups
+            .iter()
+            .filter(|(group, _)| *group != "modes")
+            .flat_map(|(_, entries)| entries)
+            .filter(|(_, label)| label.ends_with(" mode") && label.as_ref() != "prefix mode");
+        assert_eq!(mode_entries.count(), 0);
+        for (_, entries) in &groups {
+            for (_, label) in entries {
+                assert!(!label.contains("workspace"), "{label}");
+            }
+        }
+    }
+
+    fn default_entries(group: &str) -> Vec<(String, String)> {
+        keybind_help_groups(&crate::config::Config::default().keybinds())
+            .into_iter()
+            .find(|(name, _)| *name == group)
+            .map(|(_, entries)| {
+                entries
+                    .into_iter()
+                    .map(|(key, label)| (key, label.into_owned()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn has(group: &str, key: &str, label: &str) -> bool {
+        default_entries(group)
+            .iter()
+            .any(|(k, l)| k == key && l == label)
+    }
+
+    #[test]
+    fn groups_are_ordered_with_unset_keys_last() {
+        let names = keybind_help_groups(&crate::config::Config::default().keybinds())
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            ["global", "modes", "tabs", "panes", "session", "resize", "copy", "unset"]
+        );
+    }
+
+    #[test]
+    fn only_global_and_mode_entry_keys_show_the_prefix() {
+        assert!(has("global", "prefix+g", "session navigator"));
+        assert!(has("global", "prefix+shift+g", "new worktree"));
+        assert!(has("global", "prefix+b", "toggle sidebar"));
+        assert!(has("modes", "prefix+p", "pane mode"));
+        assert!(has("tabs", "c", "new tab"));
+        assert!(has("tabs", "1..9", "switch tab 1-9"));
+        assert!(has("panes", "v", "split vertical"));
+        assert!(has("panes", "shift+h", "swap pane left"));
+        assert!(!has("panes", "prefix+b", "toggle sidebar"));
+    }
+
+    #[test]
+    fn fixed_alias_keys_are_merged_into_the_action_row() {
+        assert!(has("tabs", "h / ←", "previous tab"));
+        assert!(has("tabs", "l / →", "next tab"));
+        assert!(has("panes", "h / ←", "focus pane left"));
+        assert!(has("tabs", "esc / enter / t", "tab mode: leave"));
+        assert!(has("panes", "esc / enter / p", "pane mode: leave"));
+    }
+
+    #[test]
+    fn session_resize_and_copy_have_their_own_groups() {
+        assert!(has("session", "s", "settings"));
+        assert!(has("session", "esc / enter / shift+s", "leave"));
+        assert!(has("resize", "h / ←", "resize pane left"));
+        assert!(has("copy", "v / space", "select"));
+        assert!(has(
+            "copy",
+            "PageUp / ctrl+b",
+            "page up (ctrl+b is the prefix by default)"
+        ));
+    }
+
+    #[test]
+    fn unbound_actions_are_listed_under_unset() {
+        let unset = default_entries("unset");
+        for label in [
+            "open worktree",
+            "delete worktree checkout",
+            "previous agent",
+            "next agent",
+            "focus agent 1-9",
+            "move tab left",
+            "move tab right",
+            "clear pane",
+            "resize pane left",
+            "last pane",
+        ] {
+            assert!(
+                unset.iter().any(|(k, l)| k == "unset" && l == label),
+                "{label}"
+            );
+        }
+        for group in ["global", "modes", "tabs", "panes"] {
+            assert!(default_entries(group).iter().all(|(k, _)| k != "unset"));
+        }
     }
 }

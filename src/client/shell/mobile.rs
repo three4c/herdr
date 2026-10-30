@@ -781,139 +781,141 @@ fn mobile_items(
         }
     }
 
-    items.push(MobileItem::section("spaces", palette));
-    items.push(MobileItem::action(
-        "  + new workspace",
-        ClientMobileTarget::NewWorkspace,
-        palette,
-    ));
-    for endpoint in super::aggregate_navigation::cached_endpoint_snapshots(endpoints) {
-        for entry in super::render::workspace_entries(endpoint.snapshot, &HashSet::new()) {
-            let Some(workspace) = endpoint.snapshot.workspaces.get(entry.index) else {
-                continue;
-            };
-            let selected = selected_workspace_id.is_some_and(|target| {
-                target.matches(endpoint.endpoint_id, &workspace.workspace_id)
-            });
-            let background = if selected {
-                if palette.surface0 == ratatui::style::Color::Reset {
-                    palette.active_row_bg
+    if config.spaces.visible {
+        items.push(MobileItem::section("spaces", palette));
+        items.push(MobileItem::action(
+            "  + new workspace",
+            ClientMobileTarget::NewWorkspace,
+            palette,
+        ));
+        for endpoint in super::aggregate_navigation::cached_endpoint_snapshots(endpoints) {
+            for entry in super::render::workspace_entries(endpoint.snapshot, &HashSet::new()) {
+                let Some(workspace) = endpoint.snapshot.workspaces.get(entry.index) else {
+                    continue;
+                };
+                let selected = selected_workspace_id.is_some_and(|target| {
+                    target.matches(endpoint.endpoint_id, &workspace.workspace_id)
+                });
+                let background = if selected {
+                    if palette.surface0 == ratatui::style::Color::Reset {
+                        palette.active_row_bg
+                    } else {
+                        palette.surface0
+                    }
+                } else if endpoint.endpoint_id == active_endpoint_id && workspace.focused {
+                    if selected_workspace_id.is_some()
+                        && palette.surface0 == ratatui::style::Color::Reset
+                    {
+                        palette.panel_bg
+                    } else {
+                        palette.surface_dim
+                    }
                 } else {
-                    palette.surface0
-                }
-            } else if endpoint.endpoint_id == active_endpoint_id && workspace.focused {
-                if selected_workspace_id.is_some()
-                    && palette.surface0 == ratatui::style::Color::Reset
-                {
                     palette.panel_bg
+                };
+                let connector = if entry.indented {
+                    if entry.last_child {
+                        "└─ "
+                    } else {
+                        "├─ "
+                    }
                 } else {
-                    palette.surface_dim
-                }
-            } else {
-                palette.panel_bg
-            };
-            let connector = if entry.indented {
-                if entry.last_child {
-                    "└─ "
+                    ""
+                };
+                let name = if entry.indented && !workspace.custom_label {
+                    workspace
+                        .branch
+                        .as_deref()
+                        .and_then(|branch| branch.strip_prefix("worktree/").or(Some(branch)))
+                        .unwrap_or(&workspace.label)
                 } else {
-                    "├─ "
-                }
-            } else {
-                ""
-            };
-            let name = if entry.indented && !workspace.custom_label {
-                workspace
-                    .branch
-                    .as_deref()
-                    .and_then(|branch| branch.strip_prefix("worktree/").or(Some(branch)))
-                    .unwrap_or(&workspace.label)
-            } else {
-                &workspace.label
-            };
-            let branch = workspace.branch.as_deref().unwrap_or("shell");
-            let detail_prefix = if entry.indented {
-                if entry.last_child {
-                    "       "
+                    &workspace.label
+                };
+                let branch = workspace.branch.as_deref().unwrap_or("shell");
+                let detail_prefix = if entry.indented {
+                    if entry.last_child {
+                        "       "
+                    } else {
+                        "  │    "
+                    }
                 } else {
-                    "  │    "
-                }
-            } else {
-                "  "
-            };
-            let dim = if endpoint.stale() {
-                Modifier::DIM
-            } else {
-                Modifier::empty()
-            };
-            let foreground = if endpoint.stale() {
-                palette.overlay0
-            } else {
-                palette.text
-            };
-            let status = if endpoint.stale() {
-                palette.overlay0
-            } else {
-                status_color(workspace.agent_status, palette)
-            };
-            let stale_detail = if endpoint.stale() {
-                format!(" · {}", mobile_endpoint_state(endpoint.status))
-            } else {
-                String::new()
-            };
-            items.push(MobileItem {
-                lines: vec![
-                    Line::from(vec![
-                        Span::styled(
-                            format!("  {connector}"),
+                    "  "
+                };
+                let dim = if endpoint.stale() {
+                    Modifier::DIM
+                } else {
+                    Modifier::empty()
+                };
+                let foreground = if endpoint.stale() {
+                    palette.overlay0
+                } else {
+                    palette.text
+                };
+                let status = if endpoint.stale() {
+                    palette.overlay0
+                } else {
+                    status_color(workspace.agent_status, palette)
+                };
+                let stale_detail = if endpoint.stale() {
+                    format!(" · {}", mobile_endpoint_state(endpoint.status))
+                } else {
+                    String::new()
+                };
+                items.push(MobileItem {
+                    lines: vec![
+                        Line::from(vec![
+                            Span::styled(
+                                format!("  {connector}"),
+                                Style::default()
+                                    .fg(palette.overlay0)
+                                    .bg(background)
+                                    .add_modifier(dim),
+                            ),
+                            Span::styled(
+                                status_icon(
+                                    workspace.agent_status,
+                                    config.status_indicators,
+                                    config.working_frame,
+                                ),
+                                Style::default().fg(status).bg(background).add_modifier(dim),
+                            ),
+                            Span::styled(" ", Style::default().bg(background)),
+                            Span::styled(
+                                crate::ui::truncate_end(
+                                    &format!("{} · {name}", endpoint.label),
+                                    usize::from(content_width.saturating_sub(if entry.indented {
+                                        8
+                                    } else {
+                                        5
+                                    })),
+                                ),
+                                Style::default()
+                                    .fg(foreground)
+                                    .bg(background)
+                                    .add_modifier(Modifier::BOLD | dim),
+                            ),
+                        ]),
+                        Line::from(Span::styled(
+                            crate::ui::truncate_end(
+                                &format!(
+                                    "{detail_prefix}{branch} · {}{stale_detail}",
+                                    compact_tab_status(endpoint.snapshot, workspace)
+                                ),
+                                usize::from(content_width),
+                            ),
                             Style::default()
                                 .fg(palette.overlay0)
                                 .bg(background)
                                 .add_modifier(dim),
-                        ),
-                        Span::styled(
-                            status_icon(
-                                workspace.agent_status,
-                                config.status_indicators,
-                                config.working_frame,
-                            ),
-                            Style::default().fg(status).bg(background).add_modifier(dim),
-                        ),
-                        Span::styled(" ", Style::default().bg(background)),
-                        Span::styled(
-                            crate::ui::truncate_end(
-                                &format!("{} · {name}", endpoint.label),
-                                usize::from(content_width.saturating_sub(if entry.indented {
-                                    8
-                                } else {
-                                    5
-                                })),
-                            ),
-                            Style::default()
-                                .fg(foreground)
-                                .bg(background)
-                                .add_modifier(Modifier::BOLD | dim),
-                        ),
-                    ]),
-                    Line::from(Span::styled(
-                        crate::ui::truncate_end(
-                            &format!(
-                                "{detail_prefix}{branch} · {}{stale_detail}",
-                                compact_tab_status(endpoint.snapshot, workspace)
-                            ),
-                            usize::from(content_width),
-                        ),
-                        Style::default()
-                            .fg(palette.overlay0)
-                            .bg(background)
-                            .add_modifier(dim),
-                    )),
-                ],
-                background,
-                target: Some(ClientMobileTarget::Workspace {
-                    endpoint_id: endpoint.endpoint_id.clone(),
-                    workspace_id: workspace.workspace_id.clone(),
-                }),
-            });
+                        )),
+                    ],
+                    background,
+                    target: Some(ClientMobileTarget::Workspace {
+                        endpoint_id: endpoint.endpoint_id.clone(),
+                        workspace_id: workspace.workspace_id.clone(),
+                    }),
+                });
+            }
         }
     }
 
@@ -1000,6 +1002,7 @@ impl ClientShellState {
                     | ClientShellMode::Resize
                     | ClientShellMode::Tab
                     | ClientShellMode::Pane
+                    | ClientShellMode::Session
             ) && mouse.kind == MouseEventKind::Down(MouseButton::Left)
                 && super::contains(self.hits.mobile_switch, point)
             {

@@ -342,7 +342,7 @@ pub struct KeysConfig {
     pub help: BindingConfig,
     /// Open settings. Default: "prefix+s"
     pub settings: BindingConfig,
-    /// Create a new workspace. Default: "prefix+shift+n"
+    /// Create a new workspace. Unset by default.
     pub new_workspace: BindingConfig,
     /// Create a Git worktree from the selected workspace. Default: "prefix+shift+g"
     pub new_worktree: BindingConfig,
@@ -350,11 +350,11 @@ pub struct KeysConfig {
     pub open_worktree: BindingConfig,
     /// Delete the selected managed worktree checkout after confirmation. Unset by default.
     pub remove_worktree: BindingConfig,
-    /// Rename the selected workspace. Default: "prefix+shift+w"
+    /// Rename the selected workspace. Unset by default.
     pub rename_workspace: BindingConfig,
-    /// Close the selected workspace. Default: "prefix+shift+d"
+    /// Close the selected workspace. Unset by default.
     pub close_workspace: BindingConfig,
-    /// Open the workspace navigation surface. Default: "prefix+w"
+    /// Open the workspace navigation surface. Unset by default.
     pub workspace_picker: BindingConfig,
     /// Open the session navigator. Default: "prefix+g"
     pub goto: BindingConfig,
@@ -394,7 +394,7 @@ pub struct KeysConfig {
     pub rename_tab: BindingConfig,
     /// Select the previous tab. Unset by default; tab mode (`prefix+t`) then `h` selects it.
     pub previous_tab: BindingConfig,
-    /// Select the next tab. Default: "prefix+n".
+    /// Select the next tab. Unset by default; tab mode (`prefix+t`) then `l` selects it.
     pub next_tab: BindingConfig,
     /// Move the active tab one position toward the front. Unset by default.
     pub move_tab_previous: BindingConfig,
@@ -450,6 +450,8 @@ pub struct KeysConfig {
     pub tab_mode: BindingConfig,
     /// Enter pane mode (h/j/k/l move pane focus). Default: "prefix+p"
     pub pane_mode: BindingConfig,
+    /// Enter session mode (settings, reload, help, goto, notification target, sidebar, detach). Default: "prefix+shift+s"
+    pub session_mode: BindingConfig,
     /// Resize the focused pane toward the left. Unset by default.
     pub resize_pane_left: BindingConfig,
     /// Resize the focused pane downward. Unset by default.
@@ -591,6 +593,8 @@ pub(crate) struct KeysConfigOverlay {
     #[serde(skip_serializing_if = "Option::is_none")]
     pane_mode: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    session_mode: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     resize_pane_left: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     resize_pane_down: Option<BindingConfig>,
@@ -709,6 +713,7 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(resize_mode);
         apply_field!(tab_mode);
         apply_field!(pane_mode);
+        apply_field!(session_mode);
         apply_field!(resize_pane_left);
         apply_field!(resize_pane_down);
         apply_field!(resize_pane_up);
@@ -816,6 +821,7 @@ impl KeysConfig {
         copy_effective_action_field!(resize_mode, keybinds.resize_mode);
         copy_effective_action_field!(tab_mode, keybinds.tab_mode);
         copy_effective_action_field!(pane_mode, keybinds.pane_mode);
+        copy_effective_action_field!(session_mode, keybinds.session_mode);
         copy_effective_action_field!(resize_pane_left, keybinds.resize_pane_left);
         copy_effective_action_field!(resize_pane_down, keybinds.resize_pane_down);
         copy_effective_action_field!(resize_pane_up, keybinds.resize_pane_up);
@@ -1136,13 +1142,13 @@ impl Default for KeysConfig {
             prefix: BindingConfig::one("ctrl+b"),
             help: BindingConfig::one("prefix+?"),
             settings: BindingConfig::one("prefix+s"),
-            new_workspace: BindingConfig::one("prefix+shift+n"),
+            new_workspace: BindingConfig::empty(),
             new_worktree: BindingConfig::one("prefix+shift+g"),
             open_worktree: BindingConfig::empty(),
             remove_worktree: BindingConfig::empty(),
-            rename_workspace: BindingConfig::one("prefix+shift+w"),
-            close_workspace: BindingConfig::one("prefix+shift+d"),
-            workspace_picker: BindingConfig::one("prefix+w"),
+            rename_workspace: BindingConfig::empty(),
+            close_workspace: BindingConfig::empty(),
+            workspace_picker: BindingConfig::empty(),
             goto: BindingConfig::one("prefix+g"),
             navigate_workspace_up: BindingConfig::one("up"),
             navigate_workspace_down: BindingConfig::one("down"),
@@ -1162,7 +1168,7 @@ impl Default for KeysConfig {
             new_tab: BindingConfig::one("prefix+c"),
             rename_tab: BindingConfig::one("prefix+shift+t"),
             previous_tab: BindingConfig::empty(),
-            next_tab: BindingConfig::one("prefix+n"),
+            next_tab: BindingConfig::empty(),
             move_tab_previous: BindingConfig::empty(),
             move_tab_next: BindingConfig::empty(),
             switch_tab: BindingConfig::one("prefix+1..9"),
@@ -1190,6 +1196,7 @@ impl Default for KeysConfig {
             resize_mode: BindingConfig::one("prefix+r"),
             tab_mode: BindingConfig::one("prefix+t"),
             pane_mode: BindingConfig::one("prefix+p"),
+            session_mode: BindingConfig::one("prefix+shift+s"),
             resize_pane_left: BindingConfig::empty(),
             resize_pane_down: BindingConfig::empty(),
             resize_pane_up: BindingConfig::empty(),

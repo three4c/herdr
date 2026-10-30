@@ -502,8 +502,8 @@
         {
           "key": "keys.new_workspace",
           "type": "keybinding",
-          "default": "\"prefix+shift+n\"",
-          "description": "Create a new workspace."
+          "default": "unset",
+          "description": "Create a new workspace. Unset by default."
         },
         {
           "key": "keys.new_worktree",
@@ -526,20 +526,20 @@
         {
           "key": "keys.rename_workspace",
           "type": "keybinding",
-          "default": "\"prefix+shift+w\"",
-          "description": "Rename the selected workspace."
+          "default": "unset",
+          "description": "Rename the selected workspace. Unset by default."
         },
         {
           "key": "keys.close_workspace",
           "type": "keybinding",
-          "default": "\"prefix+shift+d\"",
-          "description": "Close the selected workspace."
+          "default": "unset",
+          "description": "Close the selected workspace. Unset by default."
         },
         {
           "key": "keys.workspace_picker",
           "type": "keybinding",
-          "default": "\"prefix+w\"",
-          "description": "Open the workspace navigation surface."
+          "default": "unset",
+          "description": "Open the workspace navigation surface. Unset by default."
         },
         {
           "key": "keys.goto",
@@ -658,8 +658,8 @@
         {
           "key": "keys.next_tab",
           "type": "keybinding",
-          "default": "\"prefix+n\"",
-          "description": "Select the next tab."
+          "default": "unset",
+          "description": "Select the next tab. Unset by default; tab mode (`prefix+t`) then `l` selects it."
         },
         {
           "key": "keys.move_tab_previous",
@@ -822,6 +822,12 @@
           "type": "keybinding",
           "default": "\"prefix+p\"",
           "description": "Enter pane mode. `h`/`j`/`k`/`l` move pane focus, and the pane keys (split, swap, close, zoom, rename) keep working, until `enter` or `esc`."
+        },
+        {
+          "key": "keys.session_mode",
+          "type": "keybinding",
+          "default": "\"prefix+shift+s\"",
+          "description": "Enter session mode. One of `s` (settings), `shift+r` (reload config), `?` (keybinds), `g` (goto), `o` (notification target), `b` (sidebar), or `q` (detach) runs and leaves the mode; `esc` cancels."
         },
         {
           "key": "keys.resize_pane_left",
@@ -1094,7 +1100,7 @@
           "key": "ui.sidebar.spaces.visible",
           "type": "boolean",
           "default": "false",
-          "description": "Show the Spaces section above Agents. This fork hides Spaces by default so Agents uses the sidebar height; existing workspaces remain available internally."
+          "description": "Show the Spaces section above Agents and in the narrow-screen switcher. This fork hides Spaces by default so Agents uses the sidebar height; existing workspaces remain available internally."
         },
         {
           "key": "ui.sidebar.spaces.row_gap",

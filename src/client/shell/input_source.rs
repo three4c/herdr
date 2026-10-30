@@ -20,6 +20,7 @@ impl ClientShellState {
                 | ClientShellMode::Resize
                 | ClientShellMode::Tab
                 | ClientShellMode::Pane
+                | ClientShellMode::Session
                 | ClientShellMode::Copy
         )
     }
